@@ -116,12 +116,7 @@ export class ProductService {
       
       // Add search condition if provided
       if (search && search.trim() !== '') {
-        sqlQuery += ` WHERE 
-          "brand-name" ILIKE $1 OR 
-          "model-number" ILIKE $1 OR 
-          "category-title-description" ILIKE $1 OR 
-          "online-title-description" ILIKE $1 OR 
-          "online-long-description" ILIKE $1`;
+        sqlQuery += ` WHERE "brand-name" ILIKE $1`;
         params.push(`%${search}%`);
       }
       
@@ -149,12 +144,7 @@ export class ProductService {
       const countParams: any[] = [];
       
       if (search && search.trim() !== '') {
-        countQuery += ` WHERE 
-          "brand-name" ILIKE $1 OR 
-          "model-number" ILIKE $1 OR 
-          "category-title-description" ILIKE $1 OR 
-          "online-title-description" ILIKE $1 OR 
-          "online-long-description" ILIKE $1`;
+        countQuery += ` WHERE "brand-name" ILIKE $1`;
         countParams.push(`%${search}%`);
       }
       
@@ -284,25 +274,14 @@ export class ProductService {
       // Calculate offset for pagination
       const skip = (page - 1) * limit;
       
-      // Build the SQL query for search
+      // Build the SQL query for search - SIMPLIFIED to only search brand-name
       let sqlQuery = 'SELECT * FROM orgill_products';
       const params: any[] = [];
       
-      // Add search condition if provided - with careful type handling
+      // Add search condition if provided - ONLY search brand-name
       if (query && query.trim() !== '') {
-        sqlQuery += ` WHERE 
-          "brand-name" = $1 OR
-          "brand-name" ILIKE $2 OR
-          "model-number" ILIKE $2 OR
-          "upc-code" ILIKE $2 OR
-          "category-title-description" ILIKE $2 OR
-          "online-title-description" ILIKE $2 OR
-          "online-long-description" ILIKE $2`;
-        
-        // For numeric SKU search, we need a separate condition with proper type casting
-        sqlQuery += ` OR CAST(sku AS TEXT) = $1 OR CAST(sku AS TEXT) ILIKE $2`;
-        
-        params.push(query, `%${query}%`);
+        sqlQuery += ` WHERE "brand-name" ILIKE $1`;
+        params.push(`%${query}%`);
       }
       
       // Add ordering - Special handling for id to use sku column
@@ -329,19 +308,8 @@ export class ProductService {
       const countParams: any[] = [];
       
       if (query && query.trim() !== '') {
-        countQuery += ` WHERE 
-          "brand-name" = $1 OR
-          "brand-name" ILIKE $2 OR
-          "model-number" ILIKE $2 OR
-          "upc-code" ILIKE $2 OR
-          "category-title-description" ILIKE $2 OR
-          "online-title-description" ILIKE $2 OR
-          "online-long-description" ILIKE $2`;
-        
-        // For numeric SKU search
-        countQuery += ` OR CAST(sku AS TEXT) = $1 OR CAST(sku AS TEXT) ILIKE $2`;
-        
-        countParams.push(query, `%${query}%`);
+        countQuery += ` WHERE "brand-name" ILIKE $1`;
+        countParams.push(`%${query}%`);
       }
       
       // Execute count query
