@@ -146,4 +146,10 @@ export class ProductController {
     this.logger.log(`Removing product with id: ${id}`);
     return this.productService.remove(id);
   }
+
+  @Get('filters/specific-categories/counts')
+async getSpecificCategoryProductCounts(): Promise<Record<string, number>> {
+  this.logger.log('Getting product counts for specific categories');
+  return this.productService.getSpecificCategoryProductCounts();
+}
 }

@@ -699,4 +699,73 @@ export class ProductService {
     // General conversion for other cases
     return hyphenated.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
   }
+
+
+  // Add this method to your ProductService class
+
+// Add this method to your ProductService class
+
+// Updated method using the ARRAY ILIKE ANY pattern for product.service.ts
+
+async getSpecificCategoryProductCounts(): Promise<Record<string, number>> {
+  try {
+    this.logger.log('Fetching product counts for specific categories');
+    
+    // List of specific categories we want to count
+    const specificCategories = [
+      'Building',
+      'Materials',
+      'Tools',
+      'Hardware',
+      'Plumbing',
+      'Electrical',
+      'Flooring',
+      'Roofing',
+      'Gutters',
+      'Paint',
+      'Decor',
+      'Safety',
+      'Workwear',
+      'Landscaping',
+      'Outdoor',
+      'HVAC'
+    ];
+    
+    // Results object to store counts
+    const categoryCounts = {};
+    
+    // Loop through each category and get its count
+    for (const category of specificCategories) {
+      // Use the exact query pattern you specified
+      const query = `
+        SELECT COUNT(*) as count
+        FROM public.orgill_products
+        WHERE "category-title-description" ILIKE ANY (
+          ARRAY['%${category}%']
+        )
+      `;
+      
+      // Execute query without parameters (using the category directly in the query)
+      const result = await this.dataSource.query(query);
+      
+      // Store the count in our results object
+      categoryCounts[category] = parseInt(result[0].count);
+    }
+    
+    return categoryCounts;
+  } catch (error) {
+    this.logger.error(`Error fetching specific category counts: ${error.message}`, error.stack);
+    
+    const specificCategories = [
+      'Building', 'Materials', 'Tools', 'Hardware', 'Plumbing', 'Electrical',
+      'Flooring', 'Roofing', 'Gutters', 'Paint', 'Decor', 'Safety',
+      'Workwear', 'Landscaping', 'Outdoor', 'HVAC'
+    ];
+    
+    return specificCategories.reduce((acc, category) => {
+      acc[category] = 0;
+      return acc;
+    }, {});
+  }
+}
 }
