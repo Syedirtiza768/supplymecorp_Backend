@@ -1,0 +1,88 @@
+import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
+
+@Entity('products') // This should match your existing table name
+export class Product {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Column({ name: 'category-code', type: 'double precision', nullable: true })
+  categoryCode: number;
+
+  @Column({ name: 'upc-code', type: 'bigint', nullable: true })
+  upcCode: string;
+
+  @Column({ type: 'bigint', nullable: true })
+  sku: string;
+
+  @Column({ name: 'model-number', type: 'text', nullable: true })
+  modelNumber: string;
+
+  @Column({ name: 'brand-name', type: 'text', nullable: true })
+  brandName: string;
+
+  @Column({ name: 'category-title-description', type: 'text', nullable: true })
+  categoryTitleDescription: string;
+
+  @Column({ name: 'online-title-description', type: 'text', nullable: true })
+  onlineTitleDescription: string;
+  
+  @Column({ name: 'online-long-description', type: 'text', nullable: true })
+  onlineLongDescription: string;
+
+  // Feature bullets
+  @Column({ name: 'online-feature-bullet-1', type: 'text', nullable: true })
+  onlineFeatureBullet1: string;
+
+  @Column({ name: 'online-feature-bullet-2', type: 'text', nullable: true })
+  onlineFeatureBullet2: string;
+
+  @Column({ name: 'online-feature-bullet-3', type: 'text', nullable: true })
+  onlineFeatureBullet3: string;
+
+  @Column({ name: 'online-feature-bullet-4', type: 'text', nullable: true })
+  onlineFeatureBullet4: string;
+
+  @Column({ name: 'online-feature-bullet-5', type: 'text', nullable: true })
+  onlineFeatureBullet5: string;
+
+  // More feature bullets...
+
+  // Product images
+  @Column({ name: 'item-image-item-image1', type: 'text', nullable: true })
+  itemImage1: string;
+
+  @Column({ name: 'item-image-item-image2', type: 'text', nullable: true })
+  itemImage2: string;
+
+  @Column({ name: 'item-image-item-image3', type: 'text', nullable: true })
+  itemImage3: string;
+
+  @Column({ name: 'item-image-item-image4', type: 'text', nullable: true })
+  itemImage4: string;
+
+  // Product documents
+  @Column({ name: 'item-document-name-1', type: 'text', nullable: true })
+  itemDocumentName1: string;
+
+  @Column({ name: 'item-document-name-2', type: 'text', nullable: true })
+  itemDocumentName2: string;
+
+  @Column({ name: 'item-document-name-3', type: 'text', nullable: true })
+  itemDocumentName3: string;
+
+  // Application and warranty
+  @Column({ type: 'text', nullable: true })
+  application: string;
+
+  @Column({ type: 'text', nullable: true })
+  warranty: string;
+
+  // Text attributes (attributes 1-32)
+  // Store as JSON for flexibility with attributes
+  @Column({ type: 'jsonb', nullable: true, default: () => "'{}'" })
+  textAttributes: Record<string, { value: string; uom?: string }>;
+
+  // Numeric attributes (attributes 33-50)
+  @Column({ type: 'jsonb', nullable: true, default: () => "'{}'" })
+  numericAttributes: Record<string, { value: number; uom?: number }>;
+}
