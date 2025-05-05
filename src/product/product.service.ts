@@ -366,6 +366,246 @@ export class ProductService {
     }
   }
   
+  // NEW METHODS FOR FILTERS
+  
+  async getAllCategories(): Promise<string[]> {
+    try {
+      this.logger.log('Fetching all unique category title descriptions');
+      
+      // Query to get all unique category title descriptions, excluding nulls
+      const query = `
+        SELECT DISTINCT "category-title-description" 
+        FROM orgill_products 
+        WHERE "category-title-description" IS NOT NULL 
+        ORDER BY "category-title-description" ASC
+      `;
+      
+      const results = await this.dataSource.query(query);
+      
+      // Extract the values from the result objects
+      return results.map(result => result['category-title-description']);
+    } catch (error) {
+      this.logger.error(`Error fetching categories: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  async getAllBrands(): Promise<string[]> {
+    try {
+      this.logger.log('Fetching all unique brand names');
+      
+      // Query to get all unique brand names, excluding nulls
+      const query = `
+        SELECT DISTINCT "brand-name" 
+        FROM orgill_products 
+        WHERE "brand-name" IS NOT NULL 
+        ORDER BY "brand-name" ASC
+      `;
+      
+      const results = await this.dataSource.query(query);
+      
+      // Extract the values from the result objects
+      return results.map(result => result['brand-name']);
+    } catch (error) {
+      this.logger.error(`Error fetching brands: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  async getProductsByCategory(
+    category: string,
+    paginationDto: PaginationDto
+  ): Promise<PaginatedResponseDto<Product>> {
+    try {
+      const { page = 1, limit = 10, sortBy = 'id', sortOrder = SortOrder.DESC } = paginationDto;
+      
+      this.logger.log(`Finding products with category containing: "${category}"`);
+      
+      // Calculate offset for pagination
+      const skip = (page - 1) * limit;
+      
+      // Build the SQL query using ILIKE with pattern matching
+      let sqlQuery = `
+        SELECT * 
+        FROM orgill_products
+        WHERE "category-title-description" ILIKE ANY (
+          ARRAY['%' || $1 || '%']
+        )
+      `;
+      const params: any[] = [category];
+      
+      // Add ordering - Special handling for id to use sku column
+      if (sortBy === 'id') {
+        sqlQuery += ` ORDER BY sku ${sortOrder}`;
+      } else {
+        // Convert camelCase to hyphenated for column names
+        const dbColumn = this.convertCamelToHyphen(sortBy);
+        sqlQuery += ` ORDER BY "${dbColumn}" ${sortOrder}`;
+      }
+      
+      // Add pagination
+      sqlQuery += ` LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+      params.push(limit, skip);
+      
+      // Execute the SQL query
+      const items = await this.dataSource.query(sqlQuery, params);
+      
+      // Get total count for pagination using the same WHERE condition
+      const countQuery = `
+        SELECT COUNT(*) as count 
+        FROM orgill_products 
+        WHERE "category-title-description" ILIKE ANY (
+          ARRAY['%' || $1 || '%']
+        )
+      `;
+      const countResult = await this.dataSource.query(countQuery, [category]);
+      
+      const totalItems = parseInt(countResult[0]?.count || '0');
+      
+      // Create product entities from raw data
+      const productEntities = items.map(item => this.mapToProductEntity(item));
+      
+      // Calculate pagination metadata
+      const totalPages = Math.ceil(totalItems / limit);
+      
+      return {
+        items: productEntities,
+        meta: {
+          totalItems,
+          itemCount: items.length,
+          itemsPerPage: limit,
+          totalPages,
+          currentPage: page,
+        },
+        links: {
+          first: `/api/products/filters/by-category/${encodeURIComponent(category)}?page=1&limit=${limit}`,
+          previous: page > 1 ? `/api/products/filters/by-category/${encodeURIComponent(category)}?page=${page - 1}&limit=${limit}` : '',
+          next: page < totalPages ? `/api/products/filters/by-category/${encodeURIComponent(category)}?page=${page + 1}&limit=${limit}` : '',
+          last: totalPages > 0 ? `/api/products/filters/by-category/${encodeURIComponent(category)}?page=${totalPages}&limit=${limit}` : '',
+        },
+      };
+    } catch (error) {
+      this.logger.error(`Error finding products by category: ${error.message}`, error.stack);
+      
+      // Return empty result on error
+      const { page = 1, limit = 10 } = paginationDto;
+      
+      return {
+        items: [],
+        meta: {
+          totalItems: 0,
+          itemCount: 0,
+          itemsPerPage: limit,
+          totalPages: 0,
+          currentPage: page,
+        },
+        links: {
+          first: `/api/products/filters/by-category/${encodeURIComponent(category)}?page=1&limit=${limit}`,
+          previous: '',
+          next: '',
+          last: '',
+        },
+      };
+    }
+  }
+
+  async getProductsByBrand(
+    brand: string,
+    paginationDto: PaginationDto
+  ): Promise<PaginatedResponseDto<Product>> {
+    try {
+      const { page = 1, limit = 10, sortBy = 'id', sortOrder = SortOrder.DESC } = paginationDto;
+      
+      this.logger.log(`Finding products with brand containing: "${brand}"`);
+      
+      // Calculate offset for pagination
+      const skip = (page - 1) * limit;
+      
+      // Build the SQL query using ILIKE with pattern matching
+      let sqlQuery = `
+        SELECT * 
+        FROM orgill_products
+        WHERE "brand-name" ILIKE ANY (
+          ARRAY['%' || $1 || '%']
+        )
+      `;
+      const params: any[] = [brand];
+      
+      // Add ordering - Special handling for id to use sku column
+      if (sortBy === 'id') {
+        sqlQuery += ` ORDER BY sku ${sortOrder}`;
+      } else {
+        // Convert camelCase to hyphenated for column names
+        const dbColumn = this.convertCamelToHyphen(sortBy);
+        sqlQuery += ` ORDER BY "${dbColumn}" ${sortOrder}`;
+      }
+      
+      // Add pagination
+      sqlQuery += ` LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+      params.push(limit, skip);
+      
+      // Execute the SQL query
+      const items = await this.dataSource.query(sqlQuery, params);
+      
+      // Get total count for pagination using the same WHERE condition
+      const countQuery = `
+        SELECT COUNT(*) as count 
+        FROM orgill_products 
+        WHERE "brand-name" ILIKE ANY (
+          ARRAY['%' || $1 || '%']
+        )
+      `;
+      const countResult = await this.dataSource.query(countQuery, [brand]);
+      
+      const totalItems = parseInt(countResult[0]?.count || '0');
+      
+      // Create product entities from raw data
+      const productEntities = items.map(item => this.mapToProductEntity(item));
+      
+      // Calculate pagination metadata
+      const totalPages = Math.ceil(totalItems / limit);
+      
+      return {
+        items: productEntities,
+        meta: {
+          totalItems,
+          itemCount: items.length,
+          itemsPerPage: limit,
+          totalPages,
+          currentPage: page,
+        },
+        links: {
+          first: `/api/products/filters/by-brand/${encodeURIComponent(brand)}?page=1&limit=${limit}`,
+          previous: page > 1 ? `/api/products/filters/by-brand/${encodeURIComponent(brand)}?page=${page - 1}&limit=${limit}` : '',
+          next: page < totalPages ? `/api/products/filters/by-brand/${encodeURIComponent(brand)}?page=${page + 1}&limit=${limit}` : '',
+          last: totalPages > 0 ? `/api/products/filters/by-brand/${encodeURIComponent(brand)}?page=${totalPages}&limit=${limit}` : '',
+        },
+      };
+    } catch (error) {
+      this.logger.error(`Error finding products by brand: ${error.message}`, error.stack);
+      
+      // Return empty result on error
+      const { page = 1, limit = 10 } = paginationDto;
+      
+      return {
+        items: [],
+        meta: {
+          totalItems: 0,
+          itemCount: 0,
+          itemsPerPage: limit,
+          totalPages: 0,
+          currentPage: page,
+        },
+        links: {
+          first: `/api/products/filters/by-brand/${encodeURIComponent(brand)}?page=1&limit=${limit}`,
+          previous: '',
+          next: '',
+          last: '',
+        },
+      };
+    }
+  }
+  
   // Helper method to map raw database rows to Product entities
   private mapToProductEntity(rawItem: any): Product {
     const product = new Product();
