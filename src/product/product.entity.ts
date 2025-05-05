@@ -1,18 +1,16 @@
-import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
+import { Entity, Column, PrimaryColumn } from 'typeorm';
 
-@Entity('products') // This should match your existing table name
+@Entity('orgill_products') // Using the correct table name
 export class Product {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+  // Using sku as the primary key
+  @PrimaryColumn({ name: 'sku', type: 'text', nullable: false })
+  id: string; // This maps to the sku column
 
   @Column({ name: 'category-code', type: 'double precision', nullable: true })
   categoryCode: number;
 
-  @Column({ name: 'upc-code', type: 'bigint', nullable: true })
+  @Column({ name: 'upc-code', type: 'text', nullable: true })
   upcCode: string;
-
-  @Column({ type: 'bigint', nullable: true })
-  sku: string;
 
   @Column({ name: 'model-number', type: 'text', nullable: true })
   modelNumber: string;
@@ -46,6 +44,20 @@ export class Product {
   onlineFeatureBullet5: string;
 
   // More feature bullets...
+  @Column({ name: 'online-feature-bullet-6', type: 'text', nullable: true })
+  onlineFeatureBullet6: string;
+
+  @Column({ name: 'online-feature-bullet-7', type: 'text', nullable: true })
+  onlineFeatureBullet7: string;
+
+  @Column({ name: 'online-feature-bullet-8', type: 'text', nullable: true })
+  onlineFeatureBullet8: string;
+
+  @Column({ name: 'online-feature-bullet-9', type: 'text', nullable: true })
+  onlineFeatureBullet9: string;
+
+  @Column({ name: 'online-feature-bullet-10', type: 'text', nullable: true })
+  onlineFeatureBullet10: string;
 
   // Product images
   @Column({ name: 'item-image-item-image1', type: 'text', nullable: true })
@@ -77,12 +89,6 @@ export class Product {
   @Column({ type: 'text', nullable: true })
   warranty: string;
 
-  // Text attributes (attributes 1-32)
-  // Store as JSON for flexibility with attributes
-  @Column({ type: 'jsonb', nullable: true, default: () => "'{}'" })
-  textAttributes: Record<string, { value: string; uom?: string }>;
-
-  // Numeric attributes (attributes 33-50)
-  @Column({ type: 'jsonb', nullable: true, default: () => "'{}'" })
-  numericAttributes: Record<string, { value: number; uom?: number }>;
+  // Allow dynamic property access for attribute fields
+  [key: string]: any;
 }
