@@ -28,6 +28,7 @@ export class ProductController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   create(@Body() createProductDto: CreateProductDto): Promise<Product> {
+    this.logger.log(`Creating new product with SKU: ${createProductDto.sku}`);
     return this.productService.create(createProductDto);
   }
 

@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, ILike, FindOptionsWhere, FindOptionsOrder } from 'typeorm';
+import { InjectDataSource } from '@nestjs/typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { Product } from './product.entity';
 import { CreateProductDto, UpdateProductDto, AttributeDto, NumericAttributeDto } from './dto/product.dto';
 import { PaginationDto, PaginatedResponseDto, SortOrder } from './dto/pagination.dto';
@@ -12,7 +13,28 @@ export class ProductService {
   constructor(
     @InjectRepository(Product)
     private productRepository: Repository<Product>,
-  ) {}
+    @InjectDataSource()
+    private dataSource: DataSource
+  ) {
+    // Log table structure on service init for debugging
+    this.logTableStructure();
+  }
+
+  // Debug helper to log table structure
+  private async logTableStructure() {
+    try {
+      const schemaQuery = `
+        SELECT column_name, data_type 
+        FROM information_schema.columns 
+        WHERE table_name = 'orgill_products' 
+        ORDER BY ordinal_position
+      `;
+      const columns = await this.dataSource.query(schemaQuery);
+      this.logger.debug(`Table columns: ${JSON.stringify(columns)}`);
+    } catch (e) {
+      this.logger.error(`Failed to get schema info: ${e.message}`);
+    }
+  }
 
   // Helper method to update entity with attributes
   private applyAttributesToEntity(
@@ -87,43 +109,68 @@ export class ProductService {
       
       // Calculate offset for pagination
       const skip = (page - 1) * limit;
+
+      // Build the SQL query for products
+      let sqlQuery = 'SELECT * FROM orgill_products';
+      const params: any[] = [];
       
-      // Create sorting options - handle the special case for 'id'
-      const order: FindOptionsOrder<Product> = { };
-      
-      // If sortBy is 'id', sort by 'id' which is our primary key
-      if (sortBy === 'id') {
-        order['id'] = sortOrder;
-      } else {
-        order[sortBy] = sortOrder;
+      // Add search condition if provided
+      if (search && search.trim() !== '') {
+        sqlQuery += ` WHERE 
+          "brand-name" ILIKE $1 OR 
+          "model-number" ILIKE $1 OR 
+          "category-title-description" ILIKE $1 OR 
+          "online-title-description" ILIKE $1 OR 
+          "online-long-description" ILIKE $1`;
+        params.push(`%${search}%`);
       }
       
-      // Create where options if search term is provided
-      let whereOptions: FindOptionsWhere<Product>[] = [];
+      // Add ordering - Special handling for id to use sku column
+      if (sortBy === 'id') {
+        sqlQuery += ` ORDER BY sku ${sortOrder}`;
+      } else {
+        // Convert camelCase to hyphenated for column names
+        const dbColumn = this.convertCamelToHyphen(sortBy);
+        sqlQuery += ` ORDER BY "${dbColumn}" ${sortOrder}`;
+      }
+      
+      // Add pagination
+      sqlQuery += ` LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+      params.push(limit, skip);
+      
+      // Log the SQL for debugging
+      this.logger.debug(`Raw SQL query: ${sqlQuery} with params: ${params.join(', ')}`);
+      
+      // Execute the SQL query
+      const items = await this.dataSource.query(sqlQuery, params);
+      
+      // Get total count for pagination
+      let countQuery = 'SELECT COUNT(*) as count FROM orgill_products';
+      const countParams: any[] = [];
       
       if (search && search.trim() !== '') {
-        whereOptions = [
-          { brandName: ILike(`%${search}%`) },
-          { modelNumber: ILike(`%${search}%`) },
-          { categoryTitleDescription: ILike(`%${search}%`) },
-          { onlineTitleDescription: ILike(`%${search}%`) },
-          { onlineLongDescription: ILike(`%${search}%`) }
-        ];
+        countQuery += ` WHERE 
+          "brand-name" ILIKE $1 OR 
+          "model-number" ILIKE $1 OR 
+          "category-title-description" ILIKE $1 OR 
+          "online-title-description" ILIKE $1 OR 
+          "online-long-description" ILIKE $1`;
+        countParams.push(`%${search}%`);
       }
       
-      // Get products with count
-      const [items, totalItems] = await this.productRepository.findAndCount({
-        where: whereOptions.length > 0 ? whereOptions : {},
-        order,
-        skip,
-        take: limit,
-      });
+      // Execute count query
+      const countResult = await this.dataSource.query(countQuery, countParams);
+      
+      const totalItems = parseInt(countResult[0]?.count || '0');
+      
+      // Create product entities from raw data
+      const productEntities = items.map(item => this.mapToProductEntity(item));
       
       // Calculate pagination metadata
       const totalPages = Math.ceil(totalItems / limit);
       
       return {
-        items,
+        items: productEntities,
         meta: {
           totalItems,
           itemCount: items.length,
@@ -165,16 +212,15 @@ export class ProductService {
     try {
       this.logger.debug(`Finding product with id: ${id}`);
       
-      const product = await this.productRepository.findOne({ 
-        where: { id } 
-      });
+      const sqlQuery = 'SELECT * FROM orgill_products WHERE sku = $1';
+      const result = await this.dataSource.query(sqlQuery, [id]);
       
-      if (!product) {
+      if (!result || result.length === 0) {
         this.logger.warn(`Product with id ${id} not found`);
         throw new NotFoundException(`Product with SKU ${id} not found`);
       }
       
-      return product;
+      return this.mapToProductEntity(result[0]);
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -211,9 +257,10 @@ export class ProductService {
 
   async remove(id: string): Promise<void> {
     try {
-      const result = await this.productRepository.delete(id);
+      const sqlQuery = 'DELETE FROM orgill_products WHERE sku = $1';
+      const result = await this.dataSource.query(sqlQuery, [id]);
       
-      if (result.affected === 0) {
+      if (!result || result.affectedRows === 0) {
         throw new NotFoundException(`Product with SKU ${id} not found`);
       }
     } catch (error) {
@@ -225,7 +272,6 @@ export class ProductService {
     }
   }
 
-  // Simplified search method specifically for the search endpoint
   async searchProducts(
     query: string,
     paginationDto: PaginationDto,
@@ -233,40 +279,86 @@ export class ProductService {
     try {
       const { page = 1, limit = 10, sortBy = 'id', sortOrder = SortOrder.DESC } = paginationDto;
       
-      this.logger.debug(`Searching products with query: "${query}"`);
+      this.logger.log(`Searching products with query: "${query}"`);
       
-      // Use findAndCount with OR conditions
-      const whereConditions: FindOptionsWhere<Product>[] = [];
+      // Calculate offset for pagination
+      const skip = (page - 1) * limit;
       
-      // Only add conditions if we have a query
+      // Build the SQL query for search
+      let sqlQuery = 'SELECT * FROM orgill_products';
+      const params: any[] = [];
+      
+      // Add search condition if provided - with careful type handling
       if (query && query.trim() !== '') {
-        whereConditions.push({ id: ILike(`%${query}%`) }); // Search by SKU
-        whereConditions.push({ upcCode: ILike(`%${query}%`) }); // Search by UPC
-        whereConditions.push({ brandName: ILike(`%${query}%`) }); // Search by brand
-        whereConditions.push({ modelNumber: ILike(`%${query}%`) }); // Search by model
-        whereConditions.push({ categoryTitleDescription: ILike(`%${query}%`) }); // Search by category
-        whereConditions.push({ onlineTitleDescription: ILike(`%${query}%`) }); // Search by title
-        whereConditions.push({ onlineLongDescription: ILike(`%${query}%`) }); // Search by description
+        sqlQuery += ` WHERE 
+          "brand-name" = $1 OR
+          "brand-name" ILIKE $2 OR
+          "model-number" ILIKE $2 OR
+          "upc-code" ILIKE $2 OR
+          "category-title-description" ILIKE $2 OR
+          "online-title-description" ILIKE $2 OR
+          "online-long-description" ILIKE $2`;
+        
+        // For numeric SKU search, we need a separate condition with proper type casting
+        sqlQuery += ` OR CAST(sku AS TEXT) = $1 OR CAST(sku AS TEXT) ILIKE $2`;
+        
+        params.push(query, `%${query}%`);
       }
       
-      const options = {
-        where: whereConditions.length > 0 ? whereConditions : {},
-        skip: (page - 1) * limit,
-        take: limit,
-        order: { [sortBy === 'id' ? 'id' : sortBy]: sortOrder }
-      };
+      // Add ordering - Special handling for id to use sku column
+      if (sortBy === 'id') {
+        sqlQuery += ` ORDER BY sku ${sortOrder}`;
+      } else {
+        // Convert camelCase to hyphenated for column names
+        const dbColumn = this.convertCamelToHyphen(sortBy);
+        sqlQuery += ` ORDER BY "${dbColumn}" ${sortOrder}`;
+      }
       
-      this.logger.debug(`Search query options: ${JSON.stringify(options)}`);
+      // Add pagination
+      sqlQuery += ` LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+      params.push(limit, skip);
       
-      const [items, totalItems] = await this.productRepository.findAndCount(options);
+      // Log the SQL for debugging
+      this.logger.debug(`Raw SQL search query: ${sqlQuery} with params: ${params.join(', ')}`);
       
-      this.logger.debug(`Search found ${totalItems} total items, returning ${items.length} items`);
+      // Execute the SQL query
+      const items = await this.dataSource.query(sqlQuery, params);
+      
+      // Get total count for pagination - has to match the search query logic
+      let countQuery = 'SELECT COUNT(*) as count FROM orgill_products';
+      const countParams: any[] = [];
+      
+      if (query && query.trim() !== '') {
+        countQuery += ` WHERE 
+          "brand-name" = $1 OR
+          "brand-name" ILIKE $2 OR
+          "model-number" ILIKE $2 OR
+          "upc-code" ILIKE $2 OR
+          "category-title-description" ILIKE $2 OR
+          "online-title-description" ILIKE $2 OR
+          "online-long-description" ILIKE $2`;
+        
+        // For numeric SKU search
+        countQuery += ` OR CAST(sku AS TEXT) = $1 OR CAST(sku AS TEXT) ILIKE $2`;
+        
+        countParams.push(query, `%${query}%`);
+      }
+      
+      // Execute count query
+      const countResult = await this.dataSource.query(countQuery, countParams);
+      
+      const totalItems = parseInt(countResult[0]?.count || '0');
+      
+      // Create product entities from raw data
+      const productEntities = items.map(item => this.mapToProductEntity(item));
+      
+      this.logger.log(`Search found ${totalItems} items, returning ${items.length} items`);
       
       // Calculate pagination metadata
       const totalPages = Math.ceil(totalItems / limit);
       
       return {
-        items,
+        items: productEntities,
         meta: {
           totalItems,
           itemCount: items.length,
@@ -275,10 +367,10 @@ export class ProductService {
           currentPage: page,
         },
         links: {
-          first: `/api/products/search?query=${query}&page=1&limit=${limit}`,
-          previous: page > 1 ? `/api/products/search?query=${query}&page=${page - 1}&limit=${limit}` : '',
-          next: page < totalPages ? `/api/products/search?query=${query}&page=${page + 1}&limit=${limit}` : '',
-          last: totalPages > 0 ? `/api/products/search?query=${query}&page=${totalPages}&limit=${limit}` : '',
+          first: `/api/products/search?query=${encodeURIComponent(query)}&page=1&limit=${limit}`,
+          previous: page > 1 ? `/api/products/search?query=${encodeURIComponent(query)}&page=${page - 1}&limit=${limit}` : '',
+          next: page < totalPages ? `/api/products/search?query=${encodeURIComponent(query)}&page=${page + 1}&limit=${limit}` : '',
+          last: totalPages > 0 ? `/api/products/search?query=${encodeURIComponent(query)}&page=${totalPages}&limit=${limit}` : '',
         },
       };
     } catch (error) {
@@ -297,12 +389,106 @@ export class ProductService {
           currentPage: page,
         },
         links: {
-          first: `/api/products/search?query=${query}&page=1&limit=${limit}`,
+          first: `/api/products/search?query=${encodeURIComponent(query)}&page=1&limit=${limit}`,
           previous: '',
           next: '',
           last: '',
         },
       };
     }
+  }
+  
+  // Helper method to map raw database rows to Product entities
+  private mapToProductEntity(rawItem: any): Product {
+    const product = new Product();
+    
+    // Map each property from raw data to the product entity
+    Object.keys(rawItem).forEach(key => {
+      // Convert hyphenated database column names to camelCase property names
+      const propName = this.convertHyphenToCamel(key);
+      product[propName] = rawItem[key];
+    });
+    
+    // Make sure the id is set correctly - in this case the id is the SKU
+    product.id = rawItem.sku;
+    
+    return product;
+  }
+  
+  // Helper method to convert camelCase property names to hyphenated database column names
+  private convertCamelToHyphen(camelCase: string): string {
+    // Special case handling for known columns
+    const specialCases = {
+      'upcCode': 'upc-code',
+      'categoryCode': 'category-code',
+      'modelNumber': 'model-number',
+      'brandName': 'brand-name',
+      'categoryTitleDescription': 'category-title-description',
+      'onlineTitleDescription': 'online-title-description',
+      'onlineLongDescription': 'online-long-description',
+      'onlineFeatureBullet1': 'online-feature-bullet-1',
+      'onlineFeatureBullet2': 'online-feature-bullet-2',
+      'onlineFeatureBullet3': 'online-feature-bullet-3',
+      'onlineFeatureBullet4': 'online-feature-bullet-4',
+      'onlineFeatureBullet5': 'online-feature-bullet-5',
+      'onlineFeatureBullet6': 'online-feature-bullet-6',
+      'onlineFeatureBullet7': 'online-feature-bullet-7',
+      'onlineFeatureBullet8': 'online-feature-bullet-8',
+      'onlineFeatureBullet9': 'online-feature-bullet-9',
+      'onlineFeatureBullet10': 'online-feature-bullet-10',
+      'itemImage1': 'item-image-item-image1',
+      'itemImage2': 'item-image-item-image2',
+      'itemImage3': 'item-image-item-image3',
+      'itemImage4': 'item-image-item-image4',
+      'itemDocumentName1': 'item-document-name-1',
+      'itemDocumentName2': 'item-document-name-2',
+      'itemDocumentName3': 'item-document-name-3',
+    };
+    
+    // Return the special case if it exists
+    if (specialCases[camelCase]) {
+      return specialCases[camelCase];
+    }
+    
+    // General conversion for other cases
+    return camelCase.replace(/([A-Z])/g, '-$1').toLowerCase();
+  }
+  
+  // Helper method to convert hyphenated column names to camelCase property names
+  private convertHyphenToCamel(hyphenated: string): string {
+    const specialCases = {
+      'upc-code': 'upcCode',
+      'category-code': 'categoryCode',
+      'model-number': 'modelNumber',
+      'brand-name': 'brandName',
+      'category-title-description': 'categoryTitleDescription',
+      'online-title-description': 'onlineTitleDescription',
+      'online-long-description': 'onlineLongDescription',
+      'online-feature-bullet-1': 'onlineFeatureBullet1',
+      'online-feature-bullet-2': 'onlineFeatureBullet2',
+      'online-feature-bullet-3': 'onlineFeatureBullet3',
+      'online-feature-bullet-4': 'onlineFeatureBullet4',
+      'online-feature-bullet-5': 'onlineFeatureBullet5',
+      'online-feature-bullet-6': 'onlineFeatureBullet6',
+      'online-feature-bullet-7': 'onlineFeatureBullet7',
+      'online-feature-bullet-8': 'onlineFeatureBullet8',
+      'online-feature-bullet-9': 'onlineFeatureBullet9',
+      'online-feature-bullet-10': 'onlineFeatureBullet10',
+      'item-image-item-image1': 'itemImage1',
+      'item-image-item-image2': 'itemImage2',
+      'item-image-item-image3': 'itemImage3',
+      'item-image-item-image4': 'itemImage4',
+      'item-document-name-1': 'itemDocumentName1',
+      'item-document-name-2': 'itemDocumentName2',
+      'item-document-name-3': 'itemDocumentName3',
+    };
+    
+    // Return the special case if it exists
+    if (specialCases[hyphenated]) {
+      return specialCases[hyphenated];
+    }
+    
+    // General conversion for other cases
+    return hyphenated.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
   }
 }
