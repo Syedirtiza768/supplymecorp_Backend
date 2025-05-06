@@ -28,13 +28,11 @@ export class ProductController {
   // CATEGORIES AND BRANDS ROUTES - Specific routes first
   @Get('filters/categories')
   getAllCategories(): Promise<string[]> {
-    this.logger.log('Getting all product categories');
     return this.productService.getAllCategories();
   }
 
   @Get('filters/brands')
   getAllBrands(): Promise<string[]> {
-    this.logger.log('Getting all product brands');
     return this.productService.getAllBrands();
   }
 
@@ -46,7 +44,6 @@ export class ProductController {
     @Query('sortBy') sortBy: string = 'id',
     @Query('sortOrder') sortOrder: SortOrder = SortOrder.DESC,
   ): Promise<PaginatedResponseDto<Product>> {
-    this.logger.log(`Finding products with category: "${category}"`);
     
     const paginationDto: PaginationDto = {
       page,
@@ -66,7 +63,6 @@ export class ProductController {
     @Query('sortBy') sortBy: string = 'id',
     @Query('sortOrder') sortOrder: SortOrder = SortOrder.DESC,
   ): Promise<PaginatedResponseDto<Product>> {
-    this.logger.log(`Finding products with brand: "${brand}"`);
     
     const paginationDto: PaginationDto = {
       page,
@@ -82,7 +78,6 @@ export class ProductController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   create(@Body() createProductDto: CreateProductDto): Promise<Product> {
-    this.logger.log(`Creating new product with SKU: ${createProductDto.sku}`);
     return this.productService.create(createProductDto);
   }
 
@@ -101,7 +96,6 @@ export class ProductController {
       sortOrder,
     };
     
-    this.logger.log(`Searching products with query: "${query}" and pagination: ${JSON.stringify(paginationDto)}`);
     return this.productService.searchProducts(query, paginationDto);
   }
 
@@ -121,13 +115,11 @@ export class ProductController {
       search,
     };
     
-    this.logger.log(`Finding all products with pagination: ${JSON.stringify(paginationDto)}`);
     return this.productService.findAll(paginationDto);
   }
 
   @Get(':id')
   findOne(@Param('id') id: string): Promise<Product> {
-    this.logger.log(`Finding product with id: ${id}`);
     return this.productService.findOne(id);
   }
 
@@ -136,20 +128,17 @@ export class ProductController {
     @Param('id') id: string,
     @Body() updateProductDto: UpdateProductDto,
   ): Promise<Product> {
-    this.logger.log(`Updating product with id: ${id}`);
     return this.productService.update(id, updateProductDto);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   remove(@Param('id') id: string): Promise<void> {
-    this.logger.log(`Removing product with id: ${id}`);
     return this.productService.remove(id);
   }
 
   @Get('filters/specific-categories/counts')
 async getSpecificCategoryProductCounts(): Promise<Record<string, number>> {
-  this.logger.log('Getting product counts for specific categories');
   return this.productService.getSpecificCategoryProductCounts();
 }
 }

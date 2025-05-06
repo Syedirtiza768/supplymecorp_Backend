@@ -30,7 +30,7 @@ export class ProductService {
         ORDER BY ordinal_position
       `;
       const columns = await this.dataSource.query(schemaQuery);
-      this.logger.debug(`Table columns: ${JSON.stringify(columns)}`);
+      
     } catch (e) {
       this.logger.error(`Failed to get schema info: ${e.message}`);
     }
@@ -133,9 +133,6 @@ export class ProductService {
       sqlQuery += ` LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
       params.push(limit, skip);
       
-      // Log the SQL for debugging
-      this.logger.debug(`Raw SQL query: ${sqlQuery} with params: ${params.join(', ')}`);
-      
       // Execute the SQL query
       const items = await this.dataSource.query(sqlQuery, params);
       
@@ -200,13 +197,11 @@ export class ProductService {
 
   async findOne(id: string): Promise<Product> {
     try {
-      this.logger.debug(`Finding product with id: ${id}`);
       
       const sqlQuery = 'SELECT * FROM orgill_products WHERE sku = $1';
       const result = await this.dataSource.query(sqlQuery, [id]);
       
       if (!result || result.length === 0) {
-        this.logger.warn(`Product with id ${id} not found`);
         throw new NotFoundException(`Product with SKU ${id} not found`);
       }
       
@@ -269,7 +264,6 @@ export class ProductService {
     try {
       const { page = 1, limit = 10, sortBy = 'id', sortOrder = SortOrder.DESC } = paginationDto;
       
-      this.logger.log(`Searching products with query: "${query}"`);
       
       // Calculate offset for pagination
       const skip = (page - 1) * limit;
@@ -297,8 +291,6 @@ export class ProductService {
       sqlQuery += ` LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
       params.push(limit, skip);
       
-      // Log the SQL for debugging
-      this.logger.debug(`Raw SQL search query: ${sqlQuery} with params: ${params.join(', ')}`);
       
       // Execute the SQL query
       const items = await this.dataSource.query(sqlQuery, params);
@@ -320,7 +312,6 @@ export class ProductService {
       // Create product entities from raw data
       const productEntities = items.map(item => this.mapToProductEntity(item));
       
-      this.logger.log(`Search found ${totalItems} items, returning ${items.length} items`);
       
       // Calculate pagination metadata
       const totalPages = Math.ceil(totalItems / limit);
@@ -370,7 +361,6 @@ export class ProductService {
   
   async getAllCategories(): Promise<string[]> {
     try {
-      this.logger.log('Fetching all unique category title descriptions');
       
       // Query to get all unique category title descriptions, excluding nulls
       const query = `
@@ -392,7 +382,6 @@ export class ProductService {
 
   async getAllBrands(): Promise<string[]> {
     try {
-      this.logger.log('Fetching all unique brand names');
       
       // Query to get all unique brand names, excluding nulls
       const query = `
@@ -419,7 +408,6 @@ export class ProductService {
     try {
       const { page = 1, limit = 10, sortBy = 'id', sortOrder = SortOrder.DESC } = paginationDto;
       
-      this.logger.log(`Finding products with category containing: "${category}"`);
       
       // Calculate offset for pagination
       const skip = (page - 1) * limit;
@@ -516,7 +504,6 @@ export class ProductService {
     try {
       const { page = 1, limit = 10, sortBy = 'id', sortOrder = SortOrder.DESC } = paginationDto;
       
-      this.logger.log(`Finding products with brand containing: "${brand}"`);
       
       // Calculate offset for pagination
       const skip = (page - 1) * limit;
@@ -709,7 +696,6 @@ export class ProductService {
 
 async getSpecificCategoryProductCounts(): Promise<Record<string, number>> {
   try {
-    this.logger.log('Fetching product counts for specific categories');
     
     // List of specific categories we want to count
     const specificCategories = [

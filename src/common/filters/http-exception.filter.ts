@@ -27,11 +27,6 @@ import {
           ? exception.message
           : 'Internal server error';
       
-      // Log the error
-      this.logger.error(
-        `${request.method} ${request.url} ${status} ${message}`,
-        exception.stack,
-      );
       
       response.status(status).json({
         statusCode: status,
