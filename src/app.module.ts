@@ -1,32 +1,30 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { Product } from './product/product.entity';
 import { ProductModule } from './product/product.module';
+import { CartItem } from './cart/cart-item.entity';
+import { CartModule } from './cart/cart.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-    }),
+    ConfigModule.forRoot({ isGlobal: true }),
     TypeOrmModule.forRootAsync({
-      imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
+      useFactory: (cfg: ConfigService) => ({
         type: 'postgres',
-        host: configService.get('DB_HOST'),
-        port: parseInt(configService.get('DB_PORT', '5432')),
-        username: configService.get('DB_USERNAME'),
-        password: configService.get('DB_PASSWORD'),
-        database: configService.get('DB_DATABASE'),
-        entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: false, // Important: false since database already exists
+        host: cfg.get<string>('DB_HOST'),
+        port: parseInt(cfg.get<string>('DB_PORT') || '5432', 10),
+        username: cfg.get<string>('DB_USER'),
+        password: cfg.get<string>('DB_PASS'),
+        database: cfg.get<string>('DB_NAME'),
+        synchronize: false,
+        autoLoadEntities: false,
+  entities: [Product, CartItem],
       }),
     }),
-    ProductModule,
+  ProductModule,
+  CartModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
 })
 export class AppModule {}

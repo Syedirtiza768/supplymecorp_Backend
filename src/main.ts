@@ -1,37 +1,14 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
-import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { ConfigService } from '@nestjs/config';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-  
-  // Enable CORS
-  app.enableCors();
-  
-  // Global exception filter
-  app.useGlobalFilters(new HttpExceptionFilter());
-  
-  // Global validation pipe
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      transform: true,
-      forbidNonWhitelisted: true,
-      transformOptions: {
-        enableImplicitConversion: true,
-      },
-    }),
-  );
-  
-  // Set global prefix (optional)
+  const app = await NestFactory.create(AppModule, { cors: true });
   app.setGlobalPrefix('api');
-  
-  // Start the application
-  const port = process.env.PORT || 3000;
+  const config = app.get(ConfigService);
+  const port = parseInt(config.get<string>('PORT') || '3001', 10);
   await app.listen(port);
-  console.log(`Application is running on: http://localhost:${port}`);
-  console.log(`API endpoints available at: http://localhost:${port}/api/products`);
+  // eslint-disable-next-line no-console
+  console.log(`API listening on http://localhost:${port}`);
 }
-
 bootstrap();
