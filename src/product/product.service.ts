@@ -199,17 +199,22 @@ export class ProductService {
 				}
 
 				// Map raw SQL fields to camelCase property names expected by the frontend
-				const items = rawItems.map((row: any) => {
+				// Filter out duplicate SKUs (keep first occurrence)
+				const seenSkus = new Set();
+				const items: any[] = [];
+				for (const row of rawItems) {
+					const sku = row.sku;
+					if (seenSkus.has(sku)) continue;
+					seenSkus.add(sku);
 					const itemImage1 = row['item-image-item-image1'];
 					const itemImage2 = row['item-image-item-image2'];
 					const itemImage3 = row['item-image-item-image3'];
 					const itemImage4 = row['item-image-item-image4'];
-					// Use the first available Orgill image as mainImage, as-is if present
 					let mainImage = itemImage2 || itemImage1 || itemImage3 || itemImage4;
 					if (!mainImage) {
 						mainImage = `/images/products/${row.sku}.jpg`;
 					}
-					return {
+					items.push({
 						id: row.sku,
 						sku: row.sku,
 						brandName: row['brand-name'],
@@ -224,8 +229,8 @@ export class ProductService {
 						mainImage,
 						price: row.price,
 						...row
-					};
-				});
+					});
+				}
 				console.log(`[getProductsByCategory] category=${category}, page=${page}, limit=${limit}, total=${total}, itemsReturned=${items.length}`);
 				return this.paginate(items, total, { page, limit, sortBy, sortOrder });
 			}

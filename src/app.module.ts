@@ -5,6 +5,10 @@ import { Product } from './product/product.entity';
 import { ProductModule } from './product/product.module';
 import { CartItem } from './cart/cart-item.entity';
 import { CartModule } from './cart/cart.module';
+import { WishlistItem } from './wishlist/wishlist-item.entity';
+import { WishlistModule } from './wishlist/wishlist.module';
+import { ReviewItem } from './review/review-item.entity';
+import { ReviewModule } from './review/review.module';
 
 @Module({
   imports: [
@@ -20,11 +24,13 @@ import { CartModule } from './cart/cart.module';
         database: cfg.get<string>('DB_NAME'),
         synchronize: false,
         autoLoadEntities: false,
-  entities: [Product, CartItem],
+  entities: [Product, CartItem, WishlistItem, ReviewItem],
       }),
     }),
   ProductModule,
   CartModule,
+  WishlistModule,
+  ReviewModule,
   ],
 })
 export class AppModule {}
