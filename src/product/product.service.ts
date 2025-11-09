@@ -35,10 +35,13 @@ export class ProductService {
 		for (const row of categories) {
 			const category = row.category;
 			// Get product with highest SKU in this category
+			// First try to get numeric SKUs only, then sort by numeric value
 			const product = await this.productRepository
 				.createQueryBuilder('product')
 				.where('product.categoryTitleDescription = :category', { category })
-				.orderBy('CAST(product.id AS BIGINT)', 'DESC')
+				.andWhere("product.id ~ '^[0-9]+$'")  // Only numeric SKUs
+				.orderBy('LENGTH(product.id)', 'DESC')  // Longer = higher
+				.addOrderBy('product.id', 'DESC')  // Then by string value
 				.getOne();
 			if (product) results.push(product);
 		}
@@ -361,18 +364,19 @@ export class ProductService {
 			];
 			const categoryCounts: Record<string, number> = {};
 			for (const category of specificCategories) {
-				const query = `
-					SELECT COUNT(*) as count
-					FROM public.orgill_products
-					WHERE "category-title-description" ILIKE ANY (
-						ARRAY['%${category}%']
-					)
-				`;
-								const result = await this.dataSource.query(query);
-								categoryCounts[category] = result[0] ? parseInt(result[0].count) : 0;
+				// Use parameterized query to prevent SQL injection and parsing errors
+				const result = await this.dataSource.query(
+					`SELECT COUNT(*) as count
+					 FROM public.orgill_products
+					 WHERE "category-title-description" ILIKE $1`,
+					[`%${category}%`]
+				);
+				categoryCounts[category] = result[0] ? parseInt(result[0].count, 10) : 0;
 			}
+			this.logger.log(`Category counts: ${JSON.stringify(categoryCounts)}`);
 			return categoryCounts;
 		} catch (error) {
+			this.logger.error('Error fetching specific category product counts', error);
 			const specificCategories = [
 				'Building', 'Materials', 'Tools', 'Hardware', 'Plumbing', 'Electrical',
 				'Flooring', 'Roofing', 'Gutters', 'Paint', 'Decor', 'Safety',
