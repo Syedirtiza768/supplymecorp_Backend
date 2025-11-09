@@ -89,6 +89,16 @@ export class Product {
   @Column({ type: 'text', nullable: true })
   warranty: string;
 
+  // New fields for Most Viewed, New, Featured functionality
+  @Column({ name: 'view_count', type: 'integer', nullable: false, default: 0 })
+  viewCount: number;
+
+  @Column({ name: 'created_at', type: 'timestamptz', nullable: false, default: () => 'CURRENT_TIMESTAMP' })
+  createdAt: Date;
+
+  @Column({ name: 'featured', type: 'boolean', nullable: false, default: false })
+  featured: boolean;
+
   // Allow dynamic property access for attribute fields
   [key: string]: any;
 }

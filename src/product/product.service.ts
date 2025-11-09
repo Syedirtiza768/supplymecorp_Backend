@@ -1,3 +1,6 @@
+	/**
+	 * Get the product with the highest SKU for the top N categories
+	 */
 import { Injectable } from '@nestjs/common';
 import { UnifiedProductDto } from './dto/unified-product.dto';
 import { OrgillRepository } from './orgill.repository';
@@ -8,15 +11,116 @@ import { Repository, ILike, DataSource } from 'typeorm';
 import { Product } from './product.entity';
 import { CreateProductDto, UpdateProductDto } from './dto/product.dto';
 import { PaginationDto, PaginatedResponseDto, SortOrder } from './dto/pagination.dto';
+import { Logger } from '@nestjs/common';
 
 @Injectable()
 export class ProductService {
+
+	/**
+	 * Get the product with the highest SKU for the top N categories
+	 */
+	async getHighestSkuProductsForTopCategories(topN: number = 5): Promise<Product[]> {
+		// Get top N categories by product count
+		const categories = await this.productRepository
+			.createQueryBuilder('product')
+			.select('product.categoryTitleDescription', 'category')
+			.addSelect('COUNT(*)', 'count')
+			.where('product.categoryTitleDescription IS NOT NULL')
+			.groupBy('product.categoryTitleDescription')
+			.orderBy('count', 'DESC')
+			.limit(topN)
+			.getRawMany();
+
+		const results: Product[] = [];
+		for (const row of categories) {
+			const category = row.category;
+			// Get product with highest SKU in this category
+			const product = await this.productRepository
+				.createQueryBuilder('product')
+				.where('product.categoryTitleDescription = :category', { category })
+				.orderBy('CAST(product.id AS BIGINT)', 'DESC')
+				.getOne();
+			if (product) results.push(product);
+		}
+		return results;
+	}
+	private readonly logger = new Logger(ProductService.name);
+
 	constructor(
 		public readonly orgillRepo: OrgillRepository,
 		private readonly cp: CounterPointClient,
 		@InjectRepository(Product) private readonly productRepository: Repository<Product>,
 		private readonly dataSource: DataSource,
 	) {}
+
+	/** --------------------- NEW METHODS: Most Viewed, New, Featured --------------------- */
+	async getNewProducts(limit = 12): Promise<Product[]> {
+		try {
+			this.logger.log(`Fetching ${limit} new products`);
+			const products = await this.productRepository
+				.createQueryBuilder('product')
+				.orderBy('product.createdAt', 'DESC')
+				.limit(limit)
+				.getMany();
+			this.logger.log(`Found ${products.length} new products`);
+			return products;
+		} catch (error) {
+			this.logger.error('Error fetching new products', error);
+			throw error;
+		}
+	}
+
+	async getMostViewed(limit = 12, days?: number): Promise<Product[]> {
+		try {
+			this.logger.log(`Fetching ${limit} most viewed products (days: ${days || 'all time'})`);
+			const qb = this.productRepository.createQueryBuilder('p');
+			
+			if (days) {
+				const since = new Date();
+				since.setDate(since.getDate() - days);
+				qb.andWhere('p.createdAt >= :since', { since });
+			}
+			
+			const products = await qb
+				.orderBy('p.viewCount', 'DESC')
+				.limit(limit)
+				.getMany();
+			this.logger.log(`Found ${products.length} most viewed products`);
+			return products;
+		} catch (error) {
+			this.logger.error('Error fetching most viewed products', error);
+			throw error;
+		}
+	}
+
+	async getFeaturedProducts(limit = 12): Promise<Product[]> {
+		try {
+			this.logger.log(`Fetching ${limit} featured products`);
+			const products = await this.productRepository
+				.createQueryBuilder('p')
+				.where('p.featured = :featured', { featured: true })
+				.orderBy('p.createdAt', 'DESC')
+				.limit(limit)
+				.getMany();
+			this.logger.log(`Found ${products.length} featured products`);
+			return products;
+		} catch (error) {
+			this.logger.error('Error fetching featured products', error);
+			throw error;
+		}
+	}
+
+	async incrementView(id: string): Promise<void> {
+		try {
+			this.logger.log(`Incrementing view count for product ${id}`);
+			await this.productRepository.increment({ id }, 'viewCount', 1);
+			this.logger.log(`Successfully incremented view count for product ${id}`);
+		} catch (error) {
+			this.logger.error(`Error incrementing view for product ${id}`, error);
+		}
+	}
+
+	/** --------------------- EXISTING METHODS --------------------- */
 
 	async getUnifiedProduct(sku: string): Promise<UnifiedProductDto | null> {
 

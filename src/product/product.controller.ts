@@ -29,6 +29,38 @@ export class ProductController {
 
   constructor(private readonly productService: ProductService) {}
 
+  /** --------------------- NEW ENDPOINTS: Most Viewed, New, Featured --------------------- */
+  @Get('new')
+  async getNewProducts(@Query('limit') limit?: string) {
+    const limitNum = limit ? parseInt(limit, 10) : 12;
+    return this.productService.getNewProducts(limitNum);
+  }
+
+  @Get('most-viewed')
+  async getMostViewed(
+    @Query('limit') limit?: string,
+    @Query('days') days?: string,
+  ) {
+    const limitNum = limit ? parseInt(limit, 10) : 12;
+    const daysNum = days ? parseInt(days, 10) : undefined;
+    return this.productService.getMostViewed(limitNum, daysNum);
+  }
+
+
+  @Get('featured')
+  async getFeaturedProducts(@Query('limit') limit?: string) {
+    const limitNum = limit ? parseInt(limit, 10) : 12;
+    return this.productService.getFeaturedProducts(limitNum);
+  }
+
+  /**
+   * Get the product with the highest SKU for the top 5 categories
+   */
+  @Get('new-by-category')
+  async getNewByCategory() {
+    return this.productService.getHighestSkuProductsForTopCategories(5);
+  }
+
   /** --------------------- FILTERS: categories & brands --------------------- */
   @Get('filters/categories')
   getAllCategories(): Promise<string[]> {
@@ -101,7 +133,8 @@ export class ProductController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string): Promise<Product | null> {
+  async findOne(@Param('id') id: string): Promise<Product | null> {
+    await this.productService.incrementView(id);
     return this.productService.findOne(id);
   }
 
