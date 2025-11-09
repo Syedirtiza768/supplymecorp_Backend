@@ -39,9 +39,9 @@ export class ProductService {
 			const product = await this.productRepository
 				.createQueryBuilder('product')
 				.where('product.categoryTitleDescription = :category', { category })
-				.andWhere("product.id ~ '^[0-9]+$'")  // Only numeric SKUs
-				.orderBy('LENGTH(product.id)', 'DESC')  // Longer = higher
-				.addOrderBy('product.id', 'DESC')  // Then by string value
+				.andWhere("CAST(product.sku AS TEXT) ~ '^[0-9]+$'")  // Only numeric SKUs
+				.orderBy('LENGTH(CAST(product.sku AS TEXT))', 'DESC')  // Longer = higher
+				.addOrderBy('product.sku', 'DESC')  // Then by string value
 				.getOne();
 			if (product) results.push(product);
 		}
