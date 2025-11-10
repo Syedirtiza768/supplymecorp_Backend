@@ -425,7 +425,12 @@ export class ProductService {
 
 	// Get a single product by id
 	async findOne(id: string): Promise<Product | null> {
-		return this.productRepository.findOne({ where: { id } });
+		// Use raw query to get ALL columns including attribute fields
+		const rows = await this.dataSource.query(
+			`SELECT * FROM public.orgill_products WHERE sku = $1 LIMIT 1`,
+			[id]
+		);
+		return rows?.[0] ?? null;
 	}
 
 	// Update a product
