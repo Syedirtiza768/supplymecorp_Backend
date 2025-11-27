@@ -1,10 +1,12 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { join } from 'path';
 import * as compression from 'compression';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { 
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { 
     cors: true,
     // Optimize body parser limits
     bodyParser: true,
@@ -15,6 +17,16 @@ async function bootstrap() {
     threshold: 1024, // Only compress responses larger than 1KB
     level: 6, // Compression level (0-9, where 6 is a good balance)
   }));
+  
+  // Serve static files from uploads directory with no-cache headers
+  app.useStaticAssets(join(__dirname, '..', 'uploads'), {
+    prefix: '/uploads/',
+    setHeaders: (res) => {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    },
+  });
   
   app.setGlobalPrefix('api');
   const config = app.get(ConfigService);
