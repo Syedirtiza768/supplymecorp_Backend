@@ -12,21 +12,29 @@ async function bootstrap() {
     bodyParser: true,
   });
   
-  // Enable compression for all responses
+  // Enable compression for text-based responses only (not images)
   app.use(compression({
     threshold: 1024, // Only compress responses larger than 1KB
     level: 6, // Compression level (0-9, where 6 is a good balance)
+    filter: (req, res) => {
+      // Don't compress images
+      if (req.url.startsWith('/uploads/')) return false;
+      return compression.filter(req, res);
+    },
   }));
   
-  // Serve static files from uploads directory with no-cache headers
+  // Serve static files from uploads directory with aggressive caching for images
   // Use process.cwd() to ensure correct path in production
   const uploadsPath = join(process.cwd(), 'uploads');
   app.useStaticAssets(uploadsPath, {
     prefix: '/uploads/',
-    setHeaders: (res) => {
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-      res.setHeader('Pragma', 'no-cache');
-      res.setHeader('Expires', '0');
+    maxAge: '365d', // Cache for 1 year
+    immutable: true, // Tell browser files won't change
+    setHeaders: (res, path) => {
+      // Aggressive caching for images
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      // Enable compression hints
+      res.setHeader('Vary', 'Accept-Encoding');
     },
   });
   
