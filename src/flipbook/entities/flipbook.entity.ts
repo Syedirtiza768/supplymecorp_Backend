@@ -5,6 +5,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToMany,
+  Index,
 } from 'typeorm';
 import { FlipbookPage } from './flipbook-page.entity';
 
@@ -19,9 +20,11 @@ export class Flipbook {
   @Column({ type: 'text', nullable: true })
   description: string;
 
+  @Index()
   @Column({ type: 'boolean', default: false })
   isFeatured: boolean;
 
+  @Index()
   @CreateDateColumn()
   createdAt: Date;
 

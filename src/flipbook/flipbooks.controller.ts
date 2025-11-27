@@ -16,10 +16,14 @@ import {
 } from '@nestjs/common';
 import { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { CacheInterceptor, CacheTTL, CacheKey } from '@nestjs/cache-manager';
 import { FlipbooksService } from './flipbooks.service';
 import { CreateFlipbookDto } from './dto/create-flipbook.dto';
 import { UpdateFlipbookDto } from './dto/update-flipbook.dto';
 import { UpdateHotspotsDto } from './dto/update-hotspots.dto';
+import { UpdatePageDto } from './dto/update-page.dto';
+import { DeletePagesDto, BulkDeleteHotspotsDto, BulkUpdateHotspotsDto } from './dto/bulk-operations.dto';
+import { HotspotDto } from './dto/hotspot.dto';
 
 @Controller('flipbooks')
 export class FlipbooksController {
@@ -31,8 +35,13 @@ export class FlipbooksController {
   }
 
   @Get()
-  findAllFlipbooks() {
-    return this.flipbooksService.findAllFlipbooks();
+  findAllFlipbooks(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const pageNum = page ? parseInt(page, 10) : undefined;
+    const limitNum = limit ? parseInt(limit, 10) : undefined;
+    return this.flipbooksService.findAllFlipbooks(pageNum, limitNum);
   }
 
   @Get(':id')
@@ -51,13 +60,24 @@ export class FlipbooksController {
   }
 
   @Get('featured/current')
+  @UseInterceptors(CacheInterceptor)
+  @CacheTTL(300000) // 5 minutes
+  @CacheKey('featured-flipbook')
   getFeaturedFlipbook() {
     return this.flipbooksService.getFeaturedFlipbook();
   }
 
   @Get(':flipbookId/pages')
-  findPagesByFlipbookId(@Param('flipbookId') flipbookId: string) {
-    return this.flipbooksService.findPagesByFlipbookId(flipbookId);
+  @UseInterceptors(CacheInterceptor)
+  @CacheTTL(300000) // 5 minutes
+  findPagesByFlipbookId(
+    @Param('flipbookId') flipbookId: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const pageNum = page ? parseInt(page, 10) : undefined;
+    const limitNum = limit ? parseInt(limit, 10) : undefined;
+    return this.flipbooksService.findPagesByFlipbookId(flipbookId, pageNum, limitNum);
   }
 
   @Post(':flipbookId/pages/upload')
@@ -72,6 +92,8 @@ export class FlipbooksController {
   }
 
   @Get(':flipbookId/pages/:pageNumber/hotspots')
+  @UseInterceptors(CacheInterceptor)
+  @CacheTTL(300000) // 5 minutes
   getPageWithHotspots(
     @Param('flipbookId') flipbookId: string,
     @Param('pageNumber', ParseIntPipe) pageNumber: number,
@@ -100,9 +122,62 @@ export class FlipbooksController {
     return this.flipbooksService.deletePage(flipbookId, pageNumber);
   }
 
+  @Patch(':flipbookId/pages/:pageNumber')
+  updatePage(
+    @Param('flipbookId') flipbookId: string,
+    @Param('pageNumber', ParseIntPipe) pageNumber: number,
+    @Body() dto: UpdatePageDto,
+  ) {
+    return this.flipbooksService.updatePage(flipbookId, pageNumber, dto);
+  }
+
+  @Post(':flipbookId/pages/delete-batch')
+  deletePagesBatch(
+    @Param('flipbookId') flipbookId: string,
+    @Body() dto: DeletePagesDto,
+  ) {
+    return this.flipbooksService.deletePages(flipbookId, dto.pageNumbers);
+  }
+
+  @Post(':flipbookId/pages/:pageNumber/duplicate')
+  duplicatePage(
+    @Param('flipbookId') flipbookId: string,
+    @Param('pageNumber', ParseIntPipe) pageNumber: number,
+    @Query('newPageNumber') newPageNumber?: string,
+  ) {
+    const newNum = newPageNumber ? parseInt(newPageNumber, 10) : undefined;
+    return this.flipbooksService.duplicatePage(flipbookId, pageNumber, newNum);
+  }
+
+  @Post(':flipbookId/pages/reorder')
+  reorderPages(
+    @Param('flipbookId') flipbookId: string,
+    @Body() body: { pageOrders: Array<{ oldPageNumber: number; newPageNumber: number }> },
+  ) {
+    return this.flipbooksService.reorderPages(flipbookId, body.pageOrders);
+  }
+
   @Delete(':id')
   deleteFlipbook(@Param('id') id: string) {
     return this.flipbooksService.deleteFlipbook(id);
+  }
+
+  @Post(':id/clone')
+  cloneFlipbook(
+    @Param('id') id: string,
+    @Body() body: { title: string; description?: string },
+  ) {
+    return this.flipbooksService.cloneFlipbook(id, body.title, body.description);
+  }
+
+  @Get(':flipbookId/export/json')
+  exportFlipbookJSON(@Param('flipbookId') flipbookId: string) {
+    return this.flipbooksService.exportFlipbookJSON(flipbookId);
+  }
+
+  @Post('import/json')
+  importFlipbookJSON(@Body() data: any) {
+    return this.flipbooksService.importFlipbookJSON(data);
   }
 
   @Get(':flipbookId/export/pdf')
@@ -119,5 +194,68 @@ export class FlipbooksController {
     });
     
     res.end(pdfBuffer);
+  }
+
+  // Individual Hotspot CRUD Operations
+
+  @Post(':flipbookId/pages/:pageNumber/hotspots/single')
+  createSingleHotspot(
+    @Param('flipbookId') flipbookId: string,
+    @Param('pageNumber', ParseIntPipe) pageNumber: number,
+    @Body() dto: HotspotDto,
+  ) {
+    return this.flipbooksService.createSingleHotspot(flipbookId, pageNumber, dto);
+  }
+
+  @Patch(':flipbookId/pages/:pageNumber/hotspots/:hotspotId')
+  updateSingleHotspot(
+    @Param('hotspotId') hotspotId: string,
+    @Body() dto: Partial<HotspotDto>,
+  ) {
+    return this.flipbooksService.updateSingleHotspot(hotspotId, dto);
+  }
+
+  @Delete(':flipbookId/pages/:pageNumber/hotspots/:hotspotId')
+  deleteSingleHotspot(@Param('hotspotId') hotspotId: string) {
+    return this.flipbooksService.deleteSingleHotspot(hotspotId);
+  }
+
+  // Bulk Hotspot Operations
+
+  @Post(':flipbookId/pages/:pageNumber/hotspots/bulk-delete')
+  bulkDeleteHotspots(@Body() dto: BulkDeleteHotspotsDto) {
+    return this.flipbooksService.bulkDeleteHotspots(dto.hotspotIds);
+  }
+
+  @Patch(':flipbookId/pages/:pageNumber/hotspots/bulk-update')
+  bulkUpdateHotspots(@Body() dto: BulkUpdateHotspotsDto) {
+    return this.flipbooksService.bulkUpdateHotspots(dto.hotspotIds, dto.updates);
+  }
+
+  @Post(':flipbookId/pages/:pageNumber/hotspots/paste')
+  pasteHotspots(
+    @Param('flipbookId') flipbookId: string,
+    @Param('pageNumber', ParseIntPipe) pageNumber: number,
+    @Body() body: { hotspots: HotspotDto[] },
+  ) {
+    return this.flipbooksService.pasteHotspots(flipbookId, pageNumber, body.hotspots);
+  }
+
+  // Page Movement Operations
+
+  @Post(':flipbookId/pages/:pageNumber/move-up')
+  movePageUp(
+    @Param('flipbookId') flipbookId: string,
+    @Param('pageNumber', ParseIntPipe) pageNumber: number,
+  ) {
+    return this.flipbooksService.movePageUp(flipbookId, pageNumber);
+  }
+
+  @Post(':flipbookId/pages/:pageNumber/move-down')
+  movePageDown(
+    @Param('flipbookId') flipbookId: string,
+    @Param('pageNumber', ParseIntPipe) pageNumber: number,
+  ) {
+    return this.flipbooksService.movePageDown(flipbookId, pageNumber);
   }
 }

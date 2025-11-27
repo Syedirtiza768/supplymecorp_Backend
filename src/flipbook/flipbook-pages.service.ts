@@ -89,6 +89,11 @@ export class FlipbookPagesService {
    */
   async deletePages(flipbookId: string, pageNumbers: number[]): Promise<void> {
     if (!pageNumbers.length) return;
-    await this.pageRepository.delete(pageNumbers.map((pageNumber) => ({ flipbookId, pageNumber })));
+    await this.pageRepository
+      .createQueryBuilder()
+      .delete()
+      .where("flipbookId = :flipbookId", { flipbookId })
+      .andWhere("pageNumber IN (:...pageNumbers)", { pageNumbers })
+      .execute();
   }
 }

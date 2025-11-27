@@ -30,7 +30,20 @@ import { Hotspot } from './hotspots/hotspot.entity';
         database: cfg.get<string>('DB_NAME'),
         synchronize: false,
         autoLoadEntities: false,
-  entities: [Product, CartItem, WishlistItem, ReviewItem, Flipbook, FlipbookPage, FlipbookHotspot, Hotspot],
+        entities: [Product, CartItem, WishlistItem, ReviewItem, Flipbook, FlipbookPage, FlipbookHotspot, Hotspot],
+        // Connection pool optimization
+        extra: {
+          max: 20, // Maximum number of connections in pool
+          min: 5, // Minimum number of connections in pool
+          idleTimeoutMillis: 30000, // Close idle connections after 30 seconds
+          connectionTimeoutMillis: 10000, // Connection timeout 10 seconds
+        },
+        // Enable query logging in development
+        logging: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : false,
+        // TypeORM query result cache
+        cache: {
+          duration: 30000, // 30 seconds cache duration
+        },
       }),
     }),
   ProductModule,
