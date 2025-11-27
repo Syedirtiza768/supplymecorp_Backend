@@ -5,13 +5,12 @@ import { FlipbookPage } from './entities/flipbook-page.entity';
 import { FlipbookHotspot } from './entities/flipbook-hotspot.entity';
 import { FlipbookPagesController } from './flipbook-pages.controller';
 import { FlipbooksController } from './flipbooks.controller';
-import { ProductsController } from './products.controller';
 import { FlipbookPagesService } from './flipbook-pages.service';
 import { FlipbooksService } from './flipbooks.service';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Flipbook, FlipbookPage, FlipbookHotspot])],
-  controllers: [FlipbooksController, FlipbookPagesController, ProductsController],
+  controllers: [FlipbooksController, FlipbookPagesController],
   providers: [FlipbooksService, FlipbookPagesService],
   exports: [FlipbooksService, FlipbookPagesService],
 })
