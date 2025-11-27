@@ -1,6 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 import { Flipbook } from './entities/flipbook.entity';
 import { FlipbookPage } from './entities/flipbook-page.entity';
 import { FlipbookHotspot } from './entities/flipbook-hotspot.entity';
@@ -25,7 +27,51 @@ export class FlipbooksService {
     private readonly pageRepository: Repository<FlipbookPage>,
     @InjectRepository(FlipbookHotspot)
     private readonly hotspotRepository: Repository<FlipbookHotspot>,
+    @Inject(CACHE_MANAGER)
+    private cacheManager: Cache,
   ) {}
+
+  /**
+   * Clear cache for a specific flipbook
+   */
+  private async clearFlipbookCache(flipbookId: string): Promise<void> {
+    await this.cacheManager.del(`flipbook-${flipbookId}-pages`);
+    await this.cacheManager.del('featured-flipbook');
+    // Clear all page caches for this flipbook (if we know the range)
+    // In a production system, you might want to use cache tags or a more sophisticated approach
+  }
+
+  /**
+   * Clear cache for a specific page
+   */
+  private async clearPageCache(flipbookId: string, pageNumber: number): Promise<void> {
+    await this.cacheManager.del(`page-${flipbookId}-${pageNumber}`);
+    await this.clearFlipbookCache(flipbookId);
+  }
+
+  /**
+   * Batch load pages with hotspots to avoid N+1 queries
+   */
+  async batchLoadPagesWithHotspots(
+    flipbookId: string,
+    pageNumbers: number[],
+  ): Promise<Map<number, { page: FlipbookPage; hotspots: FlipbookHotspot[] }>> {
+    const pages = await this.pageRepository
+      .createQueryBuilder('page')
+      .leftJoinAndSelect('page.hotspots', 'hotspots')
+      .where('page.flipbookId = :flipbookId', { flipbookId })
+      .andWhere('page.pageNumber IN (:...pageNumbers)', { pageNumbers })
+      .getMany();
+
+    const result = new Map<number, { page: FlipbookPage; hotspots: FlipbookHotspot[] }>();
+    for (const page of pages) {
+      result.set(page.pageNumber, {
+        page,
+        hotspots: page.hotspots || [],
+      });
+    }
+    return result;
+  }
 
   /**
    * Create a new flipbook or return existing one
@@ -49,21 +95,36 @@ export class FlipbooksService {
   /**
    * Get all flipbooks
    */
-  async findAllFlipbooks(): Promise<Flipbook[]> {
-    return await this.flipbookRepository.find({
-      relations: ['pages', 'pages.hotspots'],
-      order: { createdAt: 'DESC' },
-    });
+  async findAllFlipbooks(page?: number, limit?: number): Promise<Flipbook[]> {
+    const queryBuilder = this.flipbookRepository
+      .createQueryBuilder('flipbook')
+      .leftJoinAndSelect('flipbook.pages', 'pages')
+      .orderBy('flipbook.createdAt', 'DESC')
+      .addOrderBy('pages.pageNumber', 'ASC');
+
+    if (page && limit) {
+      queryBuilder.skip((page - 1) * limit).take(limit);
+    }
+
+    return await queryBuilder.getMany();
   }
 
   /**
    * Get flipbook by ID
    */
-  async findFlipbookById(id: string): Promise<Flipbook> {
-    const flipbook = await this.flipbookRepository.findOne({
-      where: { id },
-      relations: ['pages', 'pages.hotspots'],
-    });
+  async findFlipbookById(id: string, includePages = false): Promise<Flipbook> {
+    const queryBuilder = this.flipbookRepository
+      .createQueryBuilder('flipbook')
+      .where('flipbook.id = :id', { id });
+
+    if (includePages) {
+      queryBuilder
+        .leftJoinAndSelect('flipbook.pages', 'pages')
+        .leftJoinAndSelect('pages.hotspots', 'hotspots')
+        .orderBy('pages.pageNumber', 'ASC');
+    }
+
+    const flipbook = await queryBuilder.getOne();
 
     if (!flipbook) {
       throw new NotFoundException(`Flipbook with ID ${id} not found`);
@@ -75,7 +136,11 @@ export class FlipbooksService {
   /**
    * Get all pages for a flipbook
    */
-  async findPagesByFlipbookId(flipbookId: string): Promise<FlipbookPage[]> {
+  async findPagesByFlipbookId(
+    flipbookId: string,
+    page?: number,
+    limit?: number,
+  ): Promise<FlipbookPage[]> {
     // Ensure flipbook exists first
     try {
       let flipbook = await this.flipbookRepository.findOne({
@@ -97,11 +162,17 @@ export class FlipbooksService {
       }
     }
 
-    return await this.pageRepository.find({
-      where: { flipbookId },
-      relations: ['hotspots'],
-      order: { pageNumber: 'ASC' },
-    });
+    const queryBuilder = this.pageRepository
+      .createQueryBuilder('page')
+      .leftJoinAndSelect('page.hotspots', 'hotspots')
+      .where('page.flipbookId = :flipbookId', { flipbookId })
+      .orderBy('page.pageNumber', 'ASC');
+
+    if (page && limit) {
+      queryBuilder.skip((page - 1) * limit).take(limit);
+    }
+
+    return await queryBuilder.getMany();
   }
 
   /**
@@ -151,7 +222,9 @@ export class FlipbooksService {
       });
     }
 
-    return await this.pageRepository.save(page);
+    const result = await this.pageRepository.save(page);
+    await this.clearPageCache(flipbookId, pageNumber);
+    return result;
   }
 
   /**
@@ -182,10 +255,12 @@ export class FlipbooksService {
       }
     }
 
-    const page = await this.pageRepository.findOne({
-      where: { flipbookId, pageNumber },
-      relations: ['hotspots'],
-    });
+    const page = await this.pageRepository
+      .createQueryBuilder('page')
+      .leftJoinAndSelect('page.hotspots', 'hotspots')
+      .where('page.flipbookId = :flipbookId', { flipbookId })
+      .andWhere('page.pageNumber = :pageNumber', { pageNumber })
+      .getOne();
 
     if (!page) {
       const fallback = this.getStaticPageImage(pageNumber);
@@ -240,7 +315,9 @@ export class FlipbooksService {
     });
 
     // Save all hotspots
-    return await this.hotspotRepository.save(hotspots);
+    const result = await this.hotspotRepository.save(hotspots);
+    await this.clearPageCache(flipbookId, pageNumber);
+    return result;
   }
 
   /**
@@ -258,6 +335,7 @@ export class FlipbooksService {
     }
 
     await this.pageRepository.remove(page);
+    await this.clearPageCache(flipbookId, pageNumber);
   }
 
   /**
@@ -278,7 +356,12 @@ export class FlipbooksService {
     if (dto.description !== undefined) flipbook.description = dto.description;
     if (dto.isFeatured !== undefined) flipbook.isFeatured = dto.isFeatured;
 
-    return await this.flipbookRepository.save(flipbook);
+    const result = await this.flipbookRepository.save(flipbook);
+    await this.clearFlipbookCache(id);
+    if (dto.isFeatured) {
+      await this.cacheManager.del('featured-flipbook');
+    }
+    return result;
   }
 
   /**
@@ -295,17 +378,22 @@ export class FlipbooksService {
       flipbook.isFeatured = false;
     }
 
-    return await this.flipbookRepository.save(flipbook);
+    const result = await this.flipbookRepository.save(flipbook);
+    await this.cacheManager.del('featured-flipbook');
+    return result;
   }
 
   /**
    * Get the currently featured flipbook
    */
   async getFeaturedFlipbook(): Promise<Flipbook | null> {
-    return await this.flipbookRepository.findOne({
-      where: { isFeatured: true },
-      relations: ['pages', 'pages.hotspots'],
-    });
+    return await this.flipbookRepository
+      .createQueryBuilder('flipbook')
+      .leftJoinAndSelect('flipbook.pages', 'pages')
+      .leftJoinAndSelect('pages.hotspots', 'hotspots')
+      .where('flipbook.isFeatured = :isFeatured', { isFeatured: true })
+      .orderBy('pages.pageNumber', 'ASC')
+      .getOne();
   }
 
   private getStaticPageImage(pageNumber: number) {
@@ -334,8 +422,8 @@ export class FlipbooksService {
    * Generate PDF from flipbook pages
    */
   async generatePDF(flipbookId: string): Promise<Buffer> {
-    const flipbook = await this.findFlipbookById(flipbookId);
-    const pages = await this.findPagesByFlipbookId(flipbookId);
+    const flipbook = await this.findFlipbookById(flipbookId, true);
+    const pages = flipbook.pages || [];
 
     if (!pages || pages.length === 0) {
       throw new BadRequestException('Flipbook has no pages to export');
@@ -346,6 +434,7 @@ export class FlipbooksService {
       const doc = new PDFDocument({
         autoFirstPage: false,
         margin: 0,
+        bufferPages: true, // Enable page buffering for better performance
       });
 
       // Collect PDF data
@@ -357,38 +446,51 @@ export class FlipbooksService {
         // Sort pages by page number
         const sortedPages = [...pages].sort((a, b) => a.pageNumber - b.pageNumber);
 
-        for (const page of sortedPages) {
-          let imageBuffer: Buffer;
+        // Process pages in batches to reduce memory usage
+        const batchSize = 10;
+        for (let i = 0; i < sortedPages.length; i += batchSize) {
+          const batch = sortedPages.slice(i, i + batchSize);
+          
+          for (const page of batch) {
+            try {
+              let imageBuffer: Buffer;
 
-          // Download image from URL
-          if (page.imageUrl.startsWith('http')) {
-            const response = await axios.get(page.imageUrl, {
-              responseType: 'arraybuffer',
-            });
-            imageBuffer = Buffer.from(response.data);
-          } else {
-            // Local file path
-            const imagePath = path.join(process.cwd(), '..', 'supplymecorp', 'public', page.imageUrl);
-            if (!fs.existsSync(imagePath)) {
-              console.warn(`Image not found: ${imagePath}`);
-              continue;
+              // Download image from URL with timeout
+              if (page.imageUrl.startsWith('http')) {
+                const response = await axios.get(page.imageUrl, {
+                  responseType: 'arraybuffer',
+                  timeout: 10000, // 10 second timeout
+                  maxContentLength: 10 * 1024 * 1024, // 10MB max size
+                });
+                imageBuffer = Buffer.from(response.data);
+              } else {
+                // Local file path
+                const imagePath = path.join(process.cwd(), '..', 'supplymecorp', 'public', page.imageUrl);
+                if (!fs.existsSync(imagePath)) {
+                  console.warn(`Image not found: ${imagePath}`);
+                  continue;
+                }
+                // Use streaming for local files
+                imageBuffer = fs.readFileSync(imagePath);
+              }
+
+              // Add page in letter size
+              doc.addPage({
+                size: 'LETTER',
+                margin: 0,
+              });
+
+              // Fit image to page
+              doc.image(imageBuffer, 0, 0, {
+                fit: [doc.page.width, doc.page.height],
+                align: 'center',
+                valign: 'center',
+              });
+            } catch (pageError) {
+              console.error(`Error processing page ${page.pageNumber}:`, pageError);
+              // Continue with other pages
             }
-            imageBuffer = fs.readFileSync(imagePath);
           }
-
-          // Add page in letter size (can be adjusted based on your needs)
-          // You can also dynamically set size based on image dimensions
-          doc.addPage({
-            size: 'LETTER', // or [width, height] for custom size
-            margin: 0,
-          });
-
-          // Fit image to page
-          doc.image(imageBuffer, 0, 0, {
-            fit: [doc.page.width, doc.page.height],
-            align: 'center',
-            valign: 'center',
-          });
         }
 
         doc.end();

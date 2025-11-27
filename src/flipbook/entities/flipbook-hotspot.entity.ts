@@ -6,6 +6,7 @@ import {
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { FlipbookPage } from './flipbook-page.entity';
 
@@ -14,6 +15,7 @@ export class FlipbookHotspot {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Index()
   @ManyToOne(() => FlipbookPage, (page) => page.hotspots, {
     onDelete: 'CASCADE',
   })

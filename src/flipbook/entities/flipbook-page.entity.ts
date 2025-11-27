@@ -35,7 +35,6 @@ export class FlipbookPage {
 
   @OneToMany(() => FlipbookHotspot, (hotspot) => hotspot.page, {
     cascade: true,
-    eager: true,
   })
   hotspots: FlipbookHotspot[];
 

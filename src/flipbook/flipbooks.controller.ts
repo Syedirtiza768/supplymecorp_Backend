@@ -16,6 +16,7 @@ import {
 } from '@nestjs/common';
 import { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { CacheInterceptor, CacheTTL, CacheKey } from '@nestjs/cache-manager';
 import { FlipbooksService } from './flipbooks.service';
 import { CreateFlipbookDto } from './dto/create-flipbook.dto';
 import { UpdateFlipbookDto } from './dto/update-flipbook.dto';
@@ -31,8 +32,13 @@ export class FlipbooksController {
   }
 
   @Get()
-  findAllFlipbooks() {
-    return this.flipbooksService.findAllFlipbooks();
+  findAllFlipbooks(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const pageNum = page ? parseInt(page, 10) : undefined;
+    const limitNum = limit ? parseInt(limit, 10) : undefined;
+    return this.flipbooksService.findAllFlipbooks(pageNum, limitNum);
   }
 
   @Get(':id')
@@ -51,13 +57,24 @@ export class FlipbooksController {
   }
 
   @Get('featured/current')
+  @UseInterceptors(CacheInterceptor)
+  @CacheTTL(300000) // 5 minutes
+  @CacheKey('featured-flipbook')
   getFeaturedFlipbook() {
     return this.flipbooksService.getFeaturedFlipbook();
   }
 
   @Get(':flipbookId/pages')
-  findPagesByFlipbookId(@Param('flipbookId') flipbookId: string) {
-    return this.flipbooksService.findPagesByFlipbookId(flipbookId);
+  @UseInterceptors(CacheInterceptor)
+  @CacheTTL(300000) // 5 minutes
+  findPagesByFlipbookId(
+    @Param('flipbookId') flipbookId: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const pageNum = page ? parseInt(page, 10) : undefined;
+    const limitNum = limit ? parseInt(limit, 10) : undefined;
+    return this.flipbooksService.findPagesByFlipbookId(flipbookId, pageNum, limitNum);
   }
 
   @Post(':flipbookId/pages/upload')
@@ -72,6 +89,8 @@ export class FlipbooksController {
   }
 
   @Get(':flipbookId/pages/:pageNumber/hotspots')
+  @UseInterceptors(CacheInterceptor)
+  @CacheTTL(300000) // 5 minutes
   getPageWithHotspots(
     @Param('flipbookId') flipbookId: string,
     @Param('pageNumber', ParseIntPipe) pageNumber: number,
