@@ -19,7 +19,9 @@ async function bootstrap() {
   }));
   
   // Serve static files from uploads directory with no-cache headers
-  app.useStaticAssets(join(__dirname, '..', 'uploads'), {
+  // Use process.cwd() to ensure correct path in production
+  const uploadsPath = join(process.cwd(), 'uploads');
+  app.useStaticAssets(uploadsPath, {
     prefix: '/uploads/',
     setHeaders: (res) => {
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
@@ -34,5 +36,6 @@ async function bootstrap() {
   await app.listen(port);
   // eslint-disable-next-line no-console
   console.log(`API listening on http://localhost:${port}`);
+  console.log(`Serving static files from: ${uploadsPath}`);
 }
 bootstrap();
