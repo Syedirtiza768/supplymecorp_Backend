@@ -27,6 +27,9 @@ export class FlipbookPage {
   @Column()
   imageUrl: string;
 
+  @Column('jsonb', { nullable: true })
+  meta: Record<string, any>;
+
   @ManyToOne(() => Flipbook, (flipbook) => flipbook.pages, {
     onDelete: 'CASCADE',
   })
