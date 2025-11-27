@@ -9,6 +9,12 @@ import { WishlistItem } from './wishlist/wishlist-item.entity';
 import { WishlistModule } from './wishlist/wishlist.module';
 import { ReviewItem } from './review/review-item.entity';
 import { ReviewModule } from './review/review.module';
+import { FlipbookModule } from './flipbook/flipbook.module';
+import { Flipbook } from './flipbook/entities/flipbook.entity';
+import { FlipbookPage } from './flipbook/entities/flipbook-page.entity';
+import { FlipbookHotspot } from './flipbook/entities/flipbook-hotspot.entity';
+import { HotspotsModule } from './hotspots/hotspots.module';
+import { Hotspot } from './hotspots/hotspot.entity';
 
 @Module({
   imports: [
@@ -24,13 +30,15 @@ import { ReviewModule } from './review/review.module';
         database: cfg.get<string>('DB_NAME'),
         synchronize: false,
         autoLoadEntities: false,
-  entities: [Product, CartItem, WishlistItem, ReviewItem],
+  entities: [Product, CartItem, WishlistItem, ReviewItem, Flipbook, FlipbookPage, FlipbookHotspot, Hotspot],
       }),
     }),
   ProductModule,
   CartModule,
   WishlistModule,
   ReviewModule,
+  FlipbookModule,
+  HotspotsModule,
   ],
 })
 export class AppModule {}

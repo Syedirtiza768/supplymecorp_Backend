@@ -1,6 +1,3 @@
-	/**
-	 * Get the product with the highest SKU for the top N categories
-	 */
 import { Injectable } from '@nestjs/common';
 import { UnifiedProductDto } from './dto/unified-product.dto';
 import { OrgillRepository } from './orgill.repository';
@@ -14,7 +11,34 @@ import { PaginationDto, PaginatedResponseDto, SortOrder } from './dto/pagination
 import { Logger } from '@nestjs/common';
 
 @Injectable()
+
 export class ProductService {
+
+	/**
+	 * Quick product search for autocomplete (returns flat array)
+	 */
+	async quickSearchProducts(query: string): Promise<{ sku: string; name: string; price?: number }[]> {
+		if (!query || query.trim().length < 2) return [];
+		// Only add SKU search if query is numeric
+		const where: import('typeorm').FindOptionsWhere<Product>[] = [
+			{ onlineTitleDescription: ILike(`%${query}%`) },
+			{ brandName: ILike(`%${query}%`) },
+			{ modelNumber: ILike(`%${query}%`) },
+		];
+		if (/^\d+$/.test(query.trim())) {
+			where.push({ id: query });
+		}
+		const products = await this.productRepository.find({
+			where,
+			take: 15,
+			order: { id: 'ASC' },
+		});
+		return products.map((p) => ({
+			sku: p.id,
+			name: p.onlineTitleDescription || p.brandName || p.modelNumber || p.id,
+			price: (p as any).price ?? undefined,
+		}));
+	}
 
 	/**
 	 * Get the product with the highest SKU for the top N categories
@@ -398,16 +422,61 @@ export class ProductService {
 	// Search products by query string
 	async searchProducts(query: string, pagination: PaginationDto): Promise<PaginatedResponseDto<Product>> {
 		const { page, limit, sortBy, sortOrder } = this.getPaginationDefaults(pagination);
-		const [items, total] = await this.productRepository.findAndCount({
-			where: [
-				{ onlineTitleDescription: ILike(`%${query}%`) },
-				{ brandName: ILike(`%${query}%`) },
-				{ modelNumber: ILike(`%${query}%`) },
-			],
-			skip: (page - 1) * limit,
-			take: limit,
-			order: { [sortBy as string]: sortOrder },
-		});
+		const qb = this.productRepository.createQueryBuilder('product');
+		let whereClause = '';
+		if (query && query.trim().length > 0) {
+			whereClause = [
+				'product.onlineTitleDescription ILIKE :q',
+				'product.brandName ILIKE :q',
+				'product.modelNumber ILIKE :q',
+				'product.onlineLongDescription ILIKE :q',
+				'product.onlineFeatureBullet1 ILIKE :q',
+				'product.onlineFeatureBullet2 ILIKE :q',
+				'product.onlineFeatureBullet3 ILIKE :q',
+				'product.onlineFeatureBullet4 ILIKE :q',
+				'product.onlineFeatureBullet5 ILIKE :q',
+				'product.onlineFeatureBullet6 ILIKE :q',
+				'product.onlineFeatureBullet7 ILIKE :q',
+				'product.onlineFeatureBullet8 ILIKE :q',
+				'product.onlineFeatureBullet9 ILIKE :q',
+				'product.onlineFeatureBullet10 ILIKE :q',
+			].join(' OR ');
+			qb.where(whereClause, { q: `%${query}%` });
+		}
+		qb.orderBy(`product.${sortBy}`, sortOrder as 'ASC' | 'DESC');
+		qb.skip((page - 1) * limit);
+		qb.take(limit);
+		// Select all columns explicitly to ensure all fields are included
+		qb.select([ 'product' ]); // This selects all columns from the Product entity
+		const items = await qb.getMany();
+
+		// Accurate total count using raw SQL for distinct IDs
+		let total = 0;
+		if (query && query.trim().length > 0) {
+			const countResult = await this.productRepository.query(
+				`SELECT COUNT(DISTINCT sku) FROM public.orgill_products WHERE ` +
+				[
+					'"online-title-description" ILIKE $1',
+					'"brand-name" ILIKE $1',
+					'"model-number" ILIKE $1',
+					'"online-long-description" ILIKE $1',
+					'"online-feature-bullet-1" ILIKE $1',
+					'"online-feature-bullet-2" ILIKE $1',
+					'"online-feature-bullet-3" ILIKE $1',
+					'"online-feature-bullet-4" ILIKE $1',
+					'"online-feature-bullet-5" ILIKE $1',
+					'"online-feature-bullet-6" ILIKE $1',
+					'"online-feature-bullet-7" ILIKE $1',
+					'"online-feature-bullet-8" ILIKE $1',
+					'"online-feature-bullet-9" ILIKE $1',
+					'"online-feature-bullet-10" ILIKE $1',
+				].join(' OR '),
+				[`%${query}%`]
+			);
+			total = parseInt(countResult[0].count || countResult[0].count_distinct || Object.values(countResult[0])[0], 10);
+		} else {
+			total = await this.productRepository.count();
+		}
 		return this.paginate(items, total, { page, limit, sortBy, sortOrder });
 	}
 
@@ -447,6 +516,16 @@ export class ProductService {
 	// Get live product data from CounterPoint
 	async getByIdFromCounterPoint(id: string) {
 		return this.cp.getItemBySku(id);
+	}
+
+	/**
+	 * Bulk fetch CounterPoint items by SKU array
+	 */
+	async getBulkFromCounterPoint(skus: string[]): Promise<any[]> {
+		if (!Array.isArray(skus) || skus.length === 0) return [];
+		// Fetch all items in parallel, filter out nulls
+		const results = await Promise.all(skus.map(sku => this.cp.getItemBySku(sku)));
+		return results.filter(Boolean);
 	}
 
 	// Helper for paginated response

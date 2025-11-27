@@ -29,6 +29,14 @@ export class ProductController {
 
   constructor(private readonly productService: ProductService) {}
 
+  /**
+   * Quick product search for autocomplete (returns flat array)
+   */
+  @Get('quick-search')
+  async quickSearch(@Query('query', new DefaultValuePipe('')) query: string): Promise<{ sku: string; name: string; price?: number }[]> {
+    return this.productService.quickSearchProducts(query);
+  }
+
   /** --------------------- NEW ENDPOINTS: Most Viewed, New, Featured --------------------- */
   @Get('new')
   async getNewProducts(@Query('limit') limit?: string) {
@@ -154,6 +162,14 @@ export class ProductController {
   @Get('live/:id')
   getLiveFromCounterPoint(@Param('id') id: string) {
     return this.productService.getByIdFromCounterPoint(id);
+  }
+
+  /**
+   * Bulk fetch CounterPoint items by SKU array
+   */
+  @Post('live/bulk')
+  async getLiveBulkFromCounterPoint(@Body('skus') skus: string[]): Promise<any[]> {
+    return this.productService.getBulkFromCounterPoint(skus);
   }
 
   /** --------------------- UNIFIED PRODUCT MERGE --------------------- */
