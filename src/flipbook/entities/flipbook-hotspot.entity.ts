@@ -22,7 +22,7 @@ export class FlipbookHotspot {
   @JoinColumn({ name: 'pageId' })
   page: FlipbookPage;
 
-  @Column()
+  @Column({ nullable: true })
   productSku: string;
 
   @Column({ nullable: true })

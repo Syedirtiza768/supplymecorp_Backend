@@ -14,8 +14,8 @@ export class HotspotDto {
   id?: string;
 
   @IsString()
-  @IsNotEmpty()
-  productSku: string;
+  @IsOptional()
+  productSku?: string;
 
   @IsOptional()
   @IsString()
