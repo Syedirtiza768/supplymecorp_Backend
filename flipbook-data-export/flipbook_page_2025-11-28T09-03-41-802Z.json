@@ -1,0 +1,128 @@
+[
+  {
+    "id": "0bb83f64-df4e-4e96-9e4d-96a332e2dca6",
+    "flipbookId": "2025-Spring-Summer-Catalogue",
+    "pageNumber": 1,
+    "imageUrl": "/uploads/flipbooks/2025-Spring-Summer-Catalogue/page-1.png",
+    "createdAt": "2025-11-27T13:44:27.638Z",
+    "updatedAt": "2025-11-27T13:44:27.638Z",
+    "meta": null
+  },
+  {
+    "id": "8b84a5e6-82bc-4dc1-9976-b02a7b738244",
+    "flipbookId": "2025-Spring-Summer-Catalogue",
+    "pageNumber": 2,
+    "imageUrl": "/uploads/flipbooks/2025-Spring-Summer-Catalogue/page-2.png",
+    "createdAt": "2025-11-27T13:44:47.475Z",
+    "updatedAt": "2025-11-27T13:44:47.475Z",
+    "meta": null
+  },
+  {
+    "id": "092e9a8f-56da-456c-8595-9e554f67bd12",
+    "flipbookId": "2025-Spring-Summer-Catalogue",
+    "pageNumber": 3,
+    "imageUrl": "/uploads/flipbooks/2025-Spring-Summer-Catalogue/page-3.png",
+    "createdAt": "2025-11-27T13:45:15.992Z",
+    "updatedAt": "2025-11-27T13:45:15.992Z",
+    "meta": null
+  },
+  {
+    "id": "f91b17cb-e46b-4575-aad8-7f1b2e82a8e1",
+    "flipbookId": "2025-Spring-Summer-Catalogue",
+    "pageNumber": 4,
+    "imageUrl": "/uploads/flipbooks/2025-Spring-Summer-Catalogue/page-4.png",
+    "createdAt": "2025-11-27T13:45:33.099Z",
+    "updatedAt": "2025-11-27T13:45:33.099Z",
+    "meta": null
+  },
+  {
+    "id": "c91354e1-63e7-4d84-9376-701dd522ebc5",
+    "flipbookId": "2025-Spring-Summer-Catalogue",
+    "pageNumber": 5,
+    "imageUrl": "/uploads/flipbooks/2025-Spring-Summer-Catalogue/page-5.png",
+    "createdAt": "2025-11-27T13:45:49.086Z",
+    "updatedAt": "2025-11-27T13:45:49.086Z",
+    "meta": null
+  },
+  {
+    "id": "ef262179-2c50-4daf-b3b3-31e2a53c884a",
+    "flipbookId": "2025-Spring-Summer-Catalogue",
+    "pageNumber": 6,
+    "imageUrl": "/uploads/flipbooks/2025-Spring-Summer-Catalogue/page-6.png",
+    "createdAt": "2025-11-27T13:46:43.676Z",
+    "updatedAt": "2025-11-27T13:46:43.676Z",
+    "meta": null
+  },
+  {
+    "id": "fbe1311c-9de9-4f7f-bdd6-134c18308c63",
+    "flipbookId": "2025-Spring-Summer-Catalogue",
+    "pageNumber": 7,
+    "imageUrl": "/uploads/flipbooks/2025-Spring-Summer-Catalogue/page-7.png",
+    "createdAt": "2025-11-27T13:47:07.205Z",
+    "updatedAt": "2025-11-27T13:47:07.205Z",
+    "meta": null
+  },
+  {
+    "id": "87268939-7321-402f-a841-f7213af34739",
+    "flipbookId": "2025-26-Fall---Winter-Catalogue",
+    "pageNumber": 1,
+    "imageUrl": "/uploads/flipbooks/2025-26-Fall---Winter-Catalogue/page-1.webp",
+    "createdAt": "2025-11-27T21:22:32.285Z",
+    "updatedAt": "2025-11-27T21:22:32.285Z",
+    "meta": null
+  },
+  {
+    "id": "1fe196e5-c4eb-4690-b5e7-6732f13f490d",
+    "flipbookId": "2025-26-Fall---Winter-Catalogue",
+    "pageNumber": 2,
+    "imageUrl": "/uploads/flipbooks/2025-26-Fall---Winter-Catalogue/page-2.webp",
+    "createdAt": "2025-11-27T21:22:48.722Z",
+    "updatedAt": "2025-11-27T21:22:48.722Z",
+    "meta": null
+  },
+  {
+    "id": "fb9a921b-7f9d-4373-8d3c-0619a6819f8f",
+    "flipbookId": "2025-26-Fall---Winter-Catalogue",
+    "pageNumber": 3,
+    "imageUrl": "/uploads/flipbooks/2025-26-Fall---Winter-Catalogue/page-3.webp",
+    "createdAt": "2025-11-27T21:23:13.155Z",
+    "updatedAt": "2025-11-27T21:23:13.155Z",
+    "meta": null
+  },
+  {
+    "id": "9e456116-6b6d-4b1d-96ea-1ee6ddfb661b",
+    "flipbookId": "2025-26-Fall---Winter-Catalogue",
+    "pageNumber": 4,
+    "imageUrl": "/uploads/flipbooks/2025-26-Fall---Winter-Catalogue/page-4.webp",
+    "createdAt": "2025-11-27T21:23:38.810Z",
+    "updatedAt": "2025-11-27T21:23:38.810Z",
+    "meta": null
+  },
+  {
+    "id": "02814f35-4222-4187-bea5-becf8fe2b799",
+    "flipbookId": "2025-26-Fall---Winter-Catalogue",
+    "pageNumber": 5,
+    "imageUrl": "/uploads/flipbooks/2025-26-Fall---Winter-Catalogue/page-5.webp",
+    "createdAt": "2025-11-27T21:30:20.803Z",
+    "updatedAt": "2025-11-27T21:30:20.803Z",
+    "meta": null
+  },
+  {
+    "id": "f5a12806-a99c-4764-a134-91c6adab1cd5",
+    "flipbookId": "2025-26-Fall---Winter-Catalogue",
+    "pageNumber": 6,
+    "imageUrl": "/uploads/flipbooks/2025-26-Fall---Winter-Catalogue/page-6.webp",
+    "createdAt": "2025-11-27T21:30:39.391Z",
+    "updatedAt": "2025-11-27T21:30:39.391Z",
+    "meta": null
+  },
+  {
+    "id": "0ac4103b-955f-4b53-8be3-e18aa2c068c6",
+    "flipbookId": "2025-26-Fall---Winter-Catalogue",
+    "pageNumber": 7,
+    "imageUrl": "/uploads/flipbooks/2025-26-Fall---Winter-Catalogue/page-7.webp",
+    "createdAt": "2025-11-27T21:30:55.882Z",
+    "updatedAt": "2025-11-27T21:30:55.882Z",
+    "meta": null
+  }
+]

@@ -1,0 +1,26 @@
+[
+  {
+    "id": "2026-Spring---Summer",
+    "title": "2026 Spring & Summer",
+    "createdAt": "2025-11-24T13:47:52.950Z",
+    "updatedAt": "2025-11-24T13:47:52.950Z",
+    "description": "",
+    "isFeatured": false
+  },
+  {
+    "id": "2025-Spring-Summer-Catalogue",
+    "title": "2025/26 Fall & Winter Catalogue",
+    "createdAt": "2025-11-21T07:37:52.426Z",
+    "updatedAt": "2025-11-27T21:22:19.960Z",
+    "description": "",
+    "isFeatured": false
+  },
+  {
+    "id": "2025-26-Fall---Winter-Catalogue",
+    "title": "2025/26 Fall & Winter Catalogue",
+    "createdAt": "2025-11-27T21:22:12.542Z",
+    "updatedAt": "2025-11-27T21:22:19.974Z",
+    "description": "",
+    "isFeatured": true
+  }
+]
