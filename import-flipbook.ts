@@ -155,6 +155,13 @@ async function importFlipbookData(options: ImportOptions) {
   }
 }
 
+// Parse command line arguments
+const args = process.argv.slice(2);
+const mode = (args[0] || 'insert') as 'insert' | 'replace';
+
+// Determine export directory (cross-platform)
+let exportDir = args[1] || 'flipbook-data-export';
+
 // Convert to absolute path if relative
 if (!path.isAbsolute(exportDir)) {
   exportDir = path.join(process.cwd(), exportDir);
