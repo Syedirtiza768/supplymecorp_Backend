@@ -138,28 +138,56 @@ async function importFlipbookData(options: ImportOptions) {
 // Parse command line arguments
 const args = process.argv.slice(2);
 const mode = (args[0] || 'insert') as 'insert' | 'replace';
-const latestExportDir = 'D:\\supplyme\\flipbook-data-export';
+
+// Determine export directory (cross-platform)
+let exportDir = args[1] || 'flipbook-data-export';
+
+// Convert to absolute path if relative
+if (!path.isAbsolute(exportDir)) {
+  exportDir = path.join(process.cwd(), exportDir);
+}
+
+// Verify directory exists
+if (!fs.existsSync(exportDir)) {
+  console.error(`❌ Export directory not found: ${exportDir}`);
+  console.error(`\nUsage: npx ts-node import-flipbook.ts [mode] [directory]`);
+  console.error(`\nExamples:`);
+  console.error(`  npx ts-node import-flipbook.ts insert`);
+  console.error(`  npx ts-node import-flipbook.ts replace`);
+  console.error(`  npx ts-node import-flipbook.ts replace /path/to/flipbook-data-export`);
+  process.exit(1);
+}
 
 // Find the latest export files
-const files = fs.readdirSync(latestExportDir);
-const timestamp = files
-  .find(f => f.startsWith('flipbook_') && f.endsWith('.json'))
-  ?.match(/\d{4}-\d{2}-\d{2}T[\d\-Z]+/)?.[0];
+const files = fs.readdirSync(exportDir);
+const jsonFiles = files.filter(f => f.startsWith('flipbook_') && f.endsWith('.json'));
+
+if (jsonFiles.length === 0) {
+  console.error(`❌ No export files found in: ${exportDir}`);
+  console.error(`\nExpected files:`);
+  console.error(`  - flipbook_*.json`);
+  console.error(`  - flipbook_page_*.json`);
+  console.error(`  - flipbook_hotspot_*.json`);
+  process.exit(1);
+}
+
+// Get the latest timestamp
+const timestamp = jsonFiles[0]?.match(/\d{4}-\d{2}-\d{2}T[\d\-Z]+/)?.[0];
 
 if (!timestamp) {
-  console.error('❌ No export files found in flipbook-data-export directory');
+  console.error('❌ Could not parse timestamp from export files');
   process.exit(1);
 }
 
 const options: ImportOptions = {
-  flipbookFile: path.join(latestExportDir, `flipbook_${timestamp}.json`),
-  pageFile: path.join(latestExportDir, `flipbook_page_${timestamp}.json`),
-  hotspotFile: path.join(latestExportDir, `flipbook_hotspot_${timestamp}.json`),
+  flipbookFile: path.join(exportDir, `flipbook_${timestamp}.json`),
+  pageFile: path.join(exportDir, `flipbook_page_${timestamp}.json`),
+  hotspotFile: path.join(exportDir, `flipbook_hotspot_${timestamp}.json`),
   mode,
 };
 
 console.log('🔄 Starting flipbook data import...');
-console.log(`📁 Source directory: ${latestExportDir}`);
+console.log(`📁 Source directory: ${exportDir}`);
 console.log(`📅 Using export from: ${timestamp}`);
 console.log(`Mode: ${mode}\n`);
 
