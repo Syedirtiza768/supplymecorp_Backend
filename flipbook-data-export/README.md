@@ -2,15 +2,67 @@
 
 ## Overview
 
-This guide explains how to export and import flipbook-related data (flipbooks, pages, and hotspots) from your PostgreSQL database.
+This guide explains how to export and import flipbook-related data (flipbooks, pages, and hotspots) from your PostgreSQL database using both `pg_dump` (recommended) and TypeORM scripts.
 
 ## Files
 
-- **`export-flipbook.ts`** - Exports flipbook data to JSON and SQL formats
-- **`import-flipbook.ts`** - Imports flipbook data from JSON files
-- **Export directory** - `D:\supplyme\flipbook-data-export\`
+- **`dump-flipbook-tables.ps1`** - PowerShell script to dump flipbook tables using pg_dump (Windows)
+- **`import-from-dump.sh`** - Bash script to import pg_dump files (Ubuntu/Linux)
+- **`export-flipbook.ts`** - Exports flipbook data to JSON and SQL formats (TypeORM)
+- **`import-flipbook.ts`** - Imports flipbook data from JSON files (TypeORM)
+- **Export directory** - `flipbook-data-export/`
 
-## Export
+## Method 1: Using pg_dump (Recommended)
+
+### Export on Windows
+
+Run the PowerShell dump script:
+
+```powershell
+cd D:\supplyme\supplymecorp_Backend
+.\dump-flipbook-tables.ps1
+```
+
+The script will:
+1. Prompt for your PostgreSQL password
+2. Dump tables: `flipbooks`, `flipbook_pages`, `flipbook_hotspots`
+3. Create file: `flipbook-data-export/flipbook_dump_YYYYMMDD_HHMMSS.sql`
+
+**Output:**
+```
+Dumping flipbook tables to flipbook-data-export/flipbook_dump_20251128_150812.sql...
+Using pg_dump: C:\Program Files\PostgreSQL\18\bin\pg_dump.exe
+Dump completed successfully!
+Output file: flipbook-data-export/flipbook_dump_20251128_150812.sql
+File size: 28.09 KB
+```
+
+### Import on Ubuntu
+
+1. Copy the dump file to your Ubuntu server:
+```bash
+scp flipbook-data-export/flipbook_dump_*.sql user@server:/path/to/destination/
+```
+
+2. Run the import script:
+```bash
+cd /path/to/destination
+chmod +x import-from-dump.sh
+./import-from-dump.sh flipbook_dump_20251128_150812.sql
+```
+
+Or import directly with psql:
+```bash
+psql -h localhost -U postgres -d orgill -f flipbook_dump_20251128_150812.sql
+```
+
+**Advantages of pg_dump:**
+- Native PostgreSQL format
+- Handles schemas, constraints, and sequences automatically
+- Faster and more reliable than custom scripts
+- Standard industry tool
+
+## Method 2: Using TypeORM Scripts
 
 ### What Gets Exported
 
