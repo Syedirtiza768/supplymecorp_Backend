@@ -200,8 +200,8 @@ export class FlipbooksService {
       where: { flipbookId, pageNumber },
     });
 
-    // Save file to public/uploads/flipbooks
-    const uploadsDir = path.join(process.cwd(), '..', 'supplymecorp', 'public', 'uploads', 'flipbooks', flipbookId);
+    // Save file to uploads/flipbooks (served from backend)
+    const uploadsDir = path.join(process.cwd(), 'uploads', 'flipbooks', flipbookId);
     await mkdir(uploadsDir, { recursive: true });
 
     const filename = `page-${pageNumber}${path.extname(file.originalname)}`;

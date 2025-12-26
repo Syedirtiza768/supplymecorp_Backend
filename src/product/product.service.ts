@@ -207,7 +207,7 @@ export class ProductService {
 				null,
 
 			category: orgill?.category_title_description ?? cp?.CATEG_COD ?? null,
-			subcategory: orgill?.subcategory ?? cp?.SUBCAT_COD ?? null,
+			subcategory: orgill?.category_title_description ?? cp?.SUBCAT_COD ?? null,
 
 			price,
 			availability: cp ? (cp?.STAT === 'A' ? 'In Stock' : 'Out of Stock') : null,
