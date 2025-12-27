@@ -4,14 +4,15 @@
  * Run with: node update-hotspot-urls.js
  */
 
+require('dotenv').config();
 const { Pool } = require('pg');
 
 const pool = new Pool({
-  host: 'localhost',
-  port: 5432,
-  user: 'postgres',
-  password: 'global321',
-  database: 'orgill',
+  host: process.env.DB_HOST || 'localhost',
+  port: parseInt(process.env.DB_PORT || '5432'),
+  user: process.env.DB_USER || process.env.DB_USERNAME || 'postgres',
+  password: process.env.DB_PASSWORD || process.env.DB_PASS || process.env.PGPASSWORD,
+  database: process.env.DB_NAME || 'orgill',
 });
 
 async function updateHotspotUrls() {
