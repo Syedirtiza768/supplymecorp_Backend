@@ -134,13 +134,20 @@ export class FlipbooksService {
   }
 
   /**
-   * Get all pages for a flipbook
+   * Get all pages for a flipbook with caching
    */
   async findPagesByFlipbookId(
     flipbookId: string,
     page?: number,
     limit?: number,
   ): Promise<FlipbookPage[]> {
+    // Check cache first for full page list
+    const cacheKey = `flipbook-${flipbookId}-pages`;
+    if (!page && !limit) {
+      const cached = await this.cacheManager.get(cacheKey);
+      if (cached) return cached as FlipbookPage[];
+    }
+    
     // Ensure flipbook exists first
     try {
       let flipbook = await this.flipbookRepository.findOne({
@@ -172,7 +179,14 @@ export class FlipbooksService {
       queryBuilder.skip((page - 1) * limit).take(limit);
     }
 
-    return await queryBuilder.getMany();
+    const pages = await queryBuilder.getMany();
+    
+    // Cache full page list for 1 hour if no pagination
+    if (!page && !limit) {
+      await this.cacheManager.set(cacheKey, pages, 3600000);
+    }
+    
+    return pages;
   }
 
   /**
@@ -208,7 +222,9 @@ export class FlipbooksService {
     const filepath = path.join(uploadsDir, filename);
     await writeFile(filepath, file.buffer);
 
-    const imageUrl = `/uploads/flipbooks/${flipbookId}/${filename}`;
+    // Add cache-busting timestamp to force browser refresh when image changes
+    const timestamp = Date.now();
+    const imageUrl = `/uploads/flipbooks/${flipbookId}/${filename}?v=${timestamp}`;
 
     if (page) {
       // Update existing page

@@ -13,10 +13,13 @@ import {
   Patch,
   Res,
   StreamableFile,
+  Inject,
 } from '@nestjs/common';
 import { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { CacheInterceptor, CacheTTL, CacheKey } from '@nestjs/cache-manager';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 import { FlipbooksService } from './flipbooks.service';
 import { CreateFlipbookDto } from './dto/create-flipbook.dto';
 import { UpdateFlipbookDto } from './dto/update-flipbook.dto';
@@ -27,7 +30,10 @@ import { HotspotDto } from './dto/hotspot.dto';
 
 @Controller('flipbooks')
 export class FlipbooksController {
-  constructor(private readonly flipbooksService: FlipbooksService) {}
+  constructor(
+    private readonly flipbooksService: FlipbooksService,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+  ) {}
 
   @Post()
   createFlipbook(@Body() dto: CreateFlipbookDto) {
@@ -55,8 +61,33 @@ export class FlipbooksController {
   }
 
   @Patch(':id/toggle-featured')
-  toggleFeatured(@Param('id') id: string) {
-    return this.flipbooksService.toggleFeatured(id);
+  async toggleFeatured(@Param('id') id: string) {
+    const result = await this.flipbooksService.toggleFeatured(id);
+    // Clear featured flipbook cache when toggling
+    await this.cacheManager.del('featured-flipbook');
+    return result;
+  }
+
+  @Post('cache/clear')
+  async clearCache() {
+    // Cache manager in v5 doesn't have a direct reset method
+    // Clear known cache keys instead
+    const keysToDelete = [
+      'featured-flipbook',
+      'all-flipbooks',
+    ];
+    
+    for (const key of keysToDelete) {
+      await this.cacheManager.del(key);
+    }
+    
+    return { message: 'All flipbook caches cleared successfully', clearedKeys: keysToDelete };
+  }
+
+  @Delete('cache/featured')
+  async clearFeaturedCache() {
+    await this.cacheManager.del('featured-flipbook');
+    return { message: 'Featured flipbook cache cleared successfully' };
   }
 
   @Get('featured/current')

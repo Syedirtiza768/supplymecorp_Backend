@@ -13,8 +13,8 @@ import { FlipbooksService } from './flipbooks.service';
   imports: [
     TypeOrmModule.forFeature([Flipbook, FlipbookPage, FlipbookHotspot]),
     CacheModule.register({
-      ttl: 300000, // 5 minutes in milliseconds
-      max: 100, // maximum number of items in cache
+      ttl: 3600000, // 1 hour in milliseconds (increased from 5 min for better performance)
+      max: 500, // maximum number of items in cache (increased from 100)
     }),
   ],
   controllers: [FlipbooksController, FlipbookPagesController],
