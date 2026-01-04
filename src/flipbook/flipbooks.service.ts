@@ -29,7 +29,7 @@ export class FlipbooksService {
     private readonly hotspotRepository: Repository<FlipbookHotspot>,
     @Inject(CACHE_MANAGER)
     private cacheManager: Cache,
-  ) {}
+  ) { }
 
   /**
    * Clear cache for a specific flipbook
@@ -147,7 +147,7 @@ export class FlipbooksService {
       const cached = await this.cacheManager.get(cacheKey);
       if (cached) return cached as FlipbookPage[];
     }
-    
+
     // Ensure flipbook exists first
     try {
       let flipbook = await this.flipbookRepository.findOne({
@@ -180,12 +180,12 @@ export class FlipbooksService {
     }
 
     const pages = await queryBuilder.getMany();
-    
+
     // Cache full page list for 1 hour if no pagination
     if (!page && !limit) {
       await this.cacheManager.set(cacheKey, pages, 3600000);
     }
-    
+
     return pages;
   }
 
@@ -279,12 +279,12 @@ export class FlipbooksService {
       .getOne();
 
     if (!page) {
-      const fallback = this.getStaticPageImage(pageNumber);
+      const fallback = this.getStaticPageImage(flipbookId, pageNumber);
       if (fallback) {
         const staticPage = this.pageRepository.create({
           flipbookId,
           pageNumber,
-          imageUrl: `/images/flipbook/${fallback.filename}`,
+          imageUrl: fallback.url || `/images/flipbook/${fallback.filename}`,
         });
         await this.pageRepository.save(staticPage);
 
@@ -294,6 +294,14 @@ export class FlipbooksService {
       throw new NotFoundException(
         `Page ${pageNumber} not found in flipbook ${flipbookId}`,
       );
+    } else {
+      // Auto-heal: Check if we have a better image in uploads/flipbooks
+      const fallback = this.getStaticPageImage(flipbookId, pageNumber);
+      if (fallback && fallback.url && page.imageUrl !== fallback.url && !page.imageUrl.includes('blob:')) {
+        console.log(`Auto-healing page ${pageNumber} image: ${page.imageUrl} -> ${fallback.url}`);
+        page.imageUrl = fallback.url;
+        await this.pageRepository.save(page);
+      }
     }
 
     return { page, hotspots: page.hotspots || [] };
@@ -390,7 +398,7 @@ export class FlipbooksService {
    */
   async updateFlipbook(id: string, dto: UpdateFlipbookDto): Promise<Flipbook> {
     const flipbook = await this.findFlipbookById(id);
-    
+
     if (dto.title) flipbook.title = dto.title;
     if (dto.description !== undefined) flipbook.description = dto.description;
     if (dto.isFeatured !== undefined) flipbook.isFeatured = dto.isFeatured;
@@ -408,7 +416,7 @@ export class FlipbooksService {
    */
   async toggleFeatured(id: string): Promise<Flipbook> {
     const flipbook = await this.findFlipbookById(id);
-    
+
     if (!flipbook.isFeatured) {
       // Unfeatured all other flipbooks first
       await this.flipbookRepository.update({ isFeatured: true }, { isFeatured: false });
@@ -435,7 +443,36 @@ export class FlipbooksService {
       .getOne();
   }
 
-  private getStaticPageImage(pageNumber: number) {
+  private getStaticPageImage(flipbookId: string, pageNumber: number) {
+    const extensions = ['webp', 'jpg', 'jpeg', 'png'];
+
+    // 1. Check uploads/flipbooks/[id] (Project-specific uploads)
+    const uploadsDir = path.join(process.cwd(), 'uploads', 'flipbooks', flipbookId);
+    if (fs.existsSync(uploadsDir)) {
+      const paddedPage = String(pageNumber).padStart(3, '0');
+      // Patterns to check: catalog_page_001.webp, page-1.jpg, 1.png
+      const patterns = [
+        `catalog_page_${paddedPage}`, // e.g., catalog_page_001
+        `page-${pageNumber}`,         // e.g., page-1
+        `${pageNumber}`               // e.g., 1
+      ];
+
+      for (const pattern of patterns) {
+        for (const ext of extensions) {
+          const filename = `${pattern}.${ext}`;
+          const filepath = path.join(uploadsDir, filename);
+          if (fs.existsSync(filepath)) {
+            return {
+              filename,
+              path: filepath,
+              url: `/uploads/flipbooks/${flipbookId}/${filename}`
+            };
+          }
+        }
+      }
+    }
+
+    // 2. Check public/images/flipbook (Global fallback)
     const staticDir = path.join(
       process.cwd(),
       '..',
@@ -444,13 +481,20 @@ export class FlipbooksService {
       'images',
       'flipbook',
     );
-    const extensions = ['jpg', 'jpeg', 'png', 'webp'];
+    // Try simpler path if the relative one fails (e.g. if running from dist)
+    const staticDirAlt = path.join(process.cwd(), 'public', 'images', 'flipbook');
 
-    for (const ext of extensions) {
-      const filename = `${pageNumber}.${ext}`;
-      const candidate = path.join(staticDir, filename);
-      if (fs.existsSync(candidate)) {
-        return { filename, path: candidate };
+    const dirsToCheck = [staticDir, staticDirAlt];
+
+    for (const dir of dirsToCheck) {
+      if (!fs.existsSync(dir)) continue;
+
+      for (const ext of extensions) {
+        const filename = `${pageNumber}.${ext}`;
+        const candidate = path.join(dir, filename);
+        if (fs.existsSync(candidate)) {
+          return { filename, path: candidate, url: null }; // url null means use default behavior or construct manually
+        }
       }
     }
 
@@ -489,7 +533,7 @@ export class FlipbooksService {
         const batchSize = 10;
         for (let i = 0; i < sortedPages.length; i += batchSize) {
           const batch = sortedPages.slice(i, i + batchSize);
-          
+
           for (const page of batch) {
             try {
               let imageBuffer: Buffer;
@@ -864,7 +908,7 @@ export class FlipbooksService {
 
     Object.assign(hotspot, updates);
     const savedHotspot = await this.hotspotRepository.save(hotspot);
-    
+
     // Clear cache for the page this hotspot belongs to
     const page = await this.pageRepository.findOne({
       where: { id: hotspot.page.id },

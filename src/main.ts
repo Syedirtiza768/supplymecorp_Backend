@@ -23,17 +23,28 @@ async function bootstrap() {
     },
   }));
   
-  // Serve static files from uploads directory with aggressive caching for images
+  // Serve static files from uploads directory with 1 hour caching
   // Use process.cwd() to ensure correct path in production
   const uploadsPath = join(process.cwd(), 'uploads');
   app.useStaticAssets(uploadsPath, {
     prefix: '/uploads/',
-    maxAge: '365d', // Cache for 1 year
-    immutable: true, // Tell browser files won't change
+    maxAge: '1h', // Cache for 1 hour
+    immutable: false,
     setHeaders: (res, path) => {
-      // Aggressive caching for images
-      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      // 1 hour cache for all files
+      res.setHeader('Cache-Control', 'public, max-age=3600');
       // Enable compression hints
+      res.setHeader('Vary', 'Accept-Encoding');
+    },
+  });
+
+  // Serve static files from public directory (for flipbook images, etc.)
+  const publicPath = join(process.cwd(), 'public');
+  app.useStaticAssets(publicPath, {
+    maxAge: '1h', // 1 hour cache for flipbook images
+    immutable: false,
+    setHeaders: (res, path) => {
+      res.setHeader('Cache-Control', 'public, max-age=3600'); // 1 hour
       res.setHeader('Vary', 'Accept-Encoding');
     },
   });
