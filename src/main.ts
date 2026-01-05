@@ -57,4 +57,7 @@ async function bootstrap() {
   console.log(`API listening on http://localhost:${port}`);
   console.log(`Serving static files from: ${uploadsPath}`);
 }
-bootstrap();
+bootstrap().catch(err => {
+  console.error('Failed to start application:', err);
+  process.exit(1);
+});

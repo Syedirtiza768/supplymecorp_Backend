@@ -83,14 +83,28 @@ export class ProductService {
 	/** --------------------- NEW METHODS: Most Viewed, New, Featured --------------------- */
 	async getNewProducts(limit = 12): Promise<Product[]> {
 		try {
-			this.logger.log(`Fetching ${limit} new products`);
-			const products = await this.productRepository
+			this.logger.log(`Fetching ${limit} new products with availability check`);
+			// Fetch more products than needed to account for unavailable items
+			const candidates = await this.productRepository
 				.createQueryBuilder('product')
 				.orderBy('product.createdAt', 'DESC')
-				.limit(limit)
+				.limit(limit * 3) // Get 3x to ensure we have enough after filtering
 				.getMany();
-			this.logger.log(`Found ${products.length} new products`);
-			return products;
+			
+			// Check availability in NCR Counterpoint and filter
+			const availableProducts: Product[] = [];
+			for (const product of candidates) {
+				if (availableProducts.length >= limit) break;
+				
+				const cpData = await this.cp.getItemBySku(product.id);
+				// Only include if item exists in Counterpoint and is active (STAT = 'A')
+				if (cpData && cpData.STAT === 'A') {
+					availableProducts.push(product);
+				}
+			}
+			
+			this.logger.log(`Found ${availableProducts.length} available new products (checked ${candidates.length} candidates)`);
+			return availableProducts;
 		} catch (error) {
 			this.logger.error('Error fetching new products', error);
 			throw error;
@@ -99,7 +113,7 @@ export class ProductService {
 
 	async getMostViewed(limit = 12, days?: number): Promise<Product[]> {
 		try {
-			this.logger.log(`Fetching ${limit} most viewed products (days: ${days || 'all time'})`);
+			this.logger.log(`Fetching ${limit} most viewed products (days: ${days || 'all time'}) with availability check`);
 			const qb = this.productRepository.createQueryBuilder('p');
 			
 			if (days) {
@@ -108,12 +122,32 @@ export class ProductService {
 				qb.andWhere('p.createdAt >= :since', { since });
 			}
 			
-			const products = await qb
+			// Fetch more products than needed to account for unavailable items
+			const candidates = await qb
 				.orderBy('p.viewCount', 'DESC')
-				.limit(limit)
+				.limit(limit * 3) // Get 3x to ensure we have enough after filtering
 				.getMany();
-			this.logger.log(`Found ${products.length} most viewed products`);
-			return products;
+			
+			// Check availability in NCR Counterpoint and filter
+			const availableProducts: Product[] = [];
+			for (const product of candidates) {
+				if (availableProducts.length >= limit) break;
+				
+				const cpData = await this.cp.getItemBySku(product.id);
+				// Only include if item exists in Counterpoint and is active (STAT = 'A')
+				if (cpData && cpData.STAT === 'A') {
+					// Enrich product with NCR price data
+					const enrichedProduct = {
+						...product,
+						price: cpData.PRC_1 ? parseFloat(cpData.PRC_1) : null,
+						regularPrice: cpData.REG_PRC ? parseFloat(cpData.REG_PRC) : null,
+					};
+					availableProducts.push(enrichedProduct as Product);
+				}
+			}
+			
+			this.logger.log(`Found ${availableProducts.length} available most viewed products (checked ${candidates.length} candidates)`);
+			return availableProducts;
 		} catch (error) {
 			this.logger.error('Error fetching most viewed products', error);
 			throw error;
@@ -122,15 +156,35 @@ export class ProductService {
 
 	async getFeaturedProducts(limit = 12): Promise<Product[]> {
 		try {
-			this.logger.log(`Fetching ${limit} featured products`);
-			const products = await this.productRepository
+			this.logger.log(`Fetching ${limit} featured products with availability check`);
+			// Fetch more products than needed to account for unavailable items
+			const candidates = await this.productRepository
 				.createQueryBuilder('p')
 				.where('p.featured = :featured', { featured: true })
 				.orderBy('p.createdAt', 'DESC')
-				.limit(limit)
+				.limit(limit * 3) // Get 3x to ensure we have enough after filtering
 				.getMany();
-			this.logger.log(`Found ${products.length} featured products`);
-			return products;
+			
+			// Check availability in NCR Counterpoint and filter
+			const availableProducts: Product[] = [];
+			for (const product of candidates) {
+				if (availableProducts.length >= limit) break;
+				
+				const cpData = await this.cp.getItemBySku(product.id);
+				// Only include if item exists in Counterpoint and is active (STAT = 'A')
+				if (cpData && cpData.STAT === 'A') {
+					// Enrich product with NCR price data
+					const enrichedProduct = {
+						...product,
+						price: cpData.PRC_1 ? parseFloat(cpData.PRC_1) : null,
+						regularPrice: cpData.REG_PRC ? parseFloat(cpData.REG_PRC) : null,
+					};
+					availableProducts.push(enrichedProduct as Product);
+				}
+			}
+			
+			this.logger.log(`Found ${availableProducts.length} available featured products (checked ${candidates.length} candidates)`);
+			return availableProducts;
 		} catch (error) {
 			this.logger.error('Error fetching featured products', error);
 			throw error;
