@@ -128,7 +128,11 @@ export class FlipbooksController {
   getPageWithHotspots(
     @Param('flipbookId') flipbookId: string,
     @Param('pageNumber', ParseIntPipe) pageNumber: number,
+    @Res() res: any,
   ) {
+    // Set aggressive cache headers for immutable flipbook hotspots
+    res.set('Cache-Control', 'public, max-age=3600, immutable');
+    res.set('ETag', `hotspots-${flipbookId}-${pageNumber}`);
     return this.flipbooksService.getPageWithHotspots(flipbookId, pageNumber);
   }
 
