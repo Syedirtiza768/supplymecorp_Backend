@@ -98,18 +98,25 @@ export class ProductService {
 	/** --------------------- NEW METHODS: Most Viewed, New, Featured --------------------- */
 	async getNewProducts(limit = 12): Promise<Product[]> {
 		try {
-			this.logger.log(`Fetching ${limit} new products with availability check`);
+			this.logger.log(`Fetching ${limit} new products with availability and image check`);
 			// Fetch more products than needed to account for unavailable items
 			const candidates = await this.productRepository
 				.createQueryBuilder('product')
 				.orderBy('product.createdAt', 'DESC')
-				.limit(limit * 3) // Get 3x to ensure we have enough after filtering
+				.limit(limit * 5) // Get 5x to ensure we have enough after filtering
 				.getMany();
 			
-			// Check availability in NCR Counterpoint and filter
+			// Check availability in NCR Counterpoint, image availability, and filter
 			const availableProducts: Product[] = [];
 			for (const product of candidates) {
 				if (availableProducts.length >= limit) break;
+				
+				// Check if product has at least one image
+				const hasImage = !!(product.itemImage1 || product.itemImage2 || product.itemImage3 || product.itemImage4);
+				if (!hasImage) {
+					this.logger.debug(`Skipping product ${product.id} - no image available`);
+					continue;
+				}
 				
 				const cpData = await this.cp.getItemBySku(product.id);
 				// Only include if item exists in Counterpoint and is active (STAT = 'A')
@@ -124,7 +131,7 @@ export class ProductService {
 				}
 			}
 			
-			this.logger.log(`Found ${availableProducts.length} available new products (checked ${candidates.length} candidates)`);
+			this.logger.log(`Found ${availableProducts.length} available new products with images (checked ${candidates.length} candidates)`);
 			return availableProducts;
 		} catch (error) {
 			this.logger.error('Error fetching new products', error);
@@ -134,7 +141,7 @@ export class ProductService {
 
 	async getMostViewed(limit = 12, days?: number): Promise<Product[]> {
 		try {
-			this.logger.log(`Fetching ${limit} most viewed products (days: ${days || 'all time'}) with availability check`);
+			this.logger.log(`Fetching ${limit} most viewed products (days: ${days || 'all time'}) with availability and image check`);
 			const qb = this.productRepository.createQueryBuilder('p');
 			
 			if (days) {
@@ -146,13 +153,20 @@ export class ProductService {
 			// Fetch more products than needed to account for unavailable items
 			const candidates = await qb
 				.orderBy('p.viewCount', 'DESC')
-				.limit(limit * 3) // Get 3x to ensure we have enough after filtering
+				.limit(limit * 5) // Get 5x to ensure we have enough after filtering
 				.getMany();
 			
-			// Check availability in NCR Counterpoint and filter
+			// Check availability in NCR Counterpoint, image availability, and filter
 			const availableProducts: Product[] = [];
 			for (const product of candidates) {
 				if (availableProducts.length >= limit) break;
+				
+				// Check if product has at least one image
+				const hasImage = !!(product.itemImage1 || product.itemImage2 || product.itemImage3 || product.itemImage4);
+				if (!hasImage) {
+					this.logger.debug(`Skipping product ${product.id} - no image available`);
+					continue;
+				}
 				
 				const cpData = await this.cp.getItemBySku(product.id);
 				// Only include if item exists in Counterpoint and is active (STAT = 'A')
@@ -167,7 +181,7 @@ export class ProductService {
 				}
 			}
 			
-			this.logger.log(`Found ${availableProducts.length} available most viewed products (checked ${candidates.length} candidates)`);
+			this.logger.log(`Found ${availableProducts.length} available most viewed products with images (checked ${candidates.length} candidates)`);
 			return availableProducts;
 		} catch (error) {
 			this.logger.error('Error fetching most viewed products', error);
@@ -177,19 +191,26 @@ export class ProductService {
 
 	async getFeaturedProducts(limit = 12): Promise<Product[]> {
 		try {
-			this.logger.log(`Fetching ${limit} featured products with availability check`);
+			this.logger.log(`Fetching ${limit} featured products with availability and image check`);
 			// Fetch more products than needed to account for unavailable items
 			const candidates = await this.productRepository
 				.createQueryBuilder('p')
 				.where('p.featured = :featured', { featured: true })
 				.orderBy('p.createdAt', 'DESC')
-				.limit(limit * 3) // Get 3x to ensure we have enough after filtering
+				.limit(limit * 5) // Get 5x to ensure we have enough after filtering
 				.getMany();
 			
-			// Check availability in NCR Counterpoint and filter
+			// Check availability in NCR Counterpoint, image availability, and filter
 			const availableProducts: Product[] = [];
 			for (const product of candidates) {
 				if (availableProducts.length >= limit) break;
+				
+				// Check if product has at least one image
+				const hasImage = !!(product.itemImage1 || product.itemImage2 || product.itemImage3 || product.itemImage4);
+				if (!hasImage) {
+					this.logger.debug(`Skipping product ${product.id} - no image available`);
+					continue;
+				}
 				
 				const cpData = await this.cp.getItemBySku(product.id);
 				// Only include if item exists in Counterpoint and is active (STAT = 'A')
@@ -204,7 +225,7 @@ export class ProductService {
 				}
 			}
 			
-			this.logger.log(`Found ${availableProducts.length} available featured products (checked ${candidates.length} candidates)`);
+			this.logger.log(`Found ${availableProducts.length} available featured products with images (checked ${candidates.length} candidates)`);
 			return availableProducts;
 		} catch (error) {
 			this.logger.error('Error fetching featured products', error);
