@@ -67,7 +67,22 @@ export class ProductService {
 				.orderBy('LENGTH(CAST(product.sku AS TEXT))', 'DESC')  // Longer = higher
 				.addOrderBy('product.sku', 'DESC')  // Then by string value
 				.getOne();
-			if (product) results.push(product);
+			
+			if (product) {
+				// Fetch pricing and availability from NCR Counterpoint
+				const cpData = await this.cp.getItemBySku(product.id);
+				
+				// Only include products that are active in Counterpoint
+				if (cpData && cpData.STAT === 'A') {
+					// Enrich with price data
+					const enrichedProduct = {
+						...product,
+						price: cpData.PRC_1 ? parseFloat(cpData.PRC_1) : null,
+						regularPrice: cpData.REG_PRC ? parseFloat(cpData.REG_PRC) : null,
+					};
+					results.push(enrichedProduct as Product);
+				}
+			}
 		}
 		return results;
 	}
@@ -99,7 +114,13 @@ export class ProductService {
 				const cpData = await this.cp.getItemBySku(product.id);
 				// Only include if item exists in Counterpoint and is active (STAT = 'A')
 				if (cpData && cpData.STAT === 'A') {
-					availableProducts.push(product);
+					// Enrich product with NCR price data
+					const enrichedProduct = {
+						...product,
+						price: cpData.PRC_1 ? parseFloat(cpData.PRC_1) : null,
+						regularPrice: cpData.REG_PRC ? parseFloat(cpData.REG_PRC) : null,
+					};
+					availableProducts.push(enrichedProduct as Product);
 				}
 			}
 			
