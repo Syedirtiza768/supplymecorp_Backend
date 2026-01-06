@@ -9,10 +9,85 @@ import { Product } from './product.entity';
 import { CreateProductDto, UpdateProductDto } from './dto/product.dto';
 import { PaginationDto, PaginatedResponseDto, SortOrder } from './dto/pagination.dto';
 import { Logger } from '@nestjs/common';
+import * as fs from 'fs';
+import * as path from 'path';
 
 @Injectable()
 
 export class ProductService {
+	// Simple in-memory cache for image availability to avoid repeated HEADs
+	private imageAvailabilityCache: Map<string, { ok: boolean; ts: number }> = new Map();
+
+	private get publicDir() {
+		// Static assets usually live under /public; adjust if configured differently
+		return path.join(process.cwd(), 'public');
+	}
+
+	private isHttpUrl(url: string): boolean {
+		return /^https?:\/\//i.test(url);
+	}
+
+	private resolveLocalPathFromUrl(url: string): string | null {
+		if (!url) return null;
+		if (this.isHttpUrl(url)) return null;
+		// Treat leading "/" as relative to public dir
+		const rel = url.startsWith('/') ? url.slice(1) : url;
+		return path.join(this.publicDir, rel.replace(/\\/g, '/'));
+	}
+
+	private async headWithTimeout(url: string, timeoutMs = 2000): Promise<boolean> {
+		try {
+			// Cache lookup first
+			const cached = this.imageAvailabilityCache.get(url);
+			const now = Date.now();
+			if (cached && (now - cached.ts) < 6 * 60 * 60 * 1000) { // 6 hours
+				return cached.ok;
+			}
+
+			const controller = new AbortController();
+			const t = setTimeout(() => controller.abort(), timeoutMs);
+			const res = await fetch(url, { method: 'HEAD', signal: controller.signal as any });
+			clearTimeout(t);
+			const ok = res.ok;
+			this.imageAvailabilityCache.set(url, { ok, ts: now });
+			return ok;
+		} catch {
+			this.imageAvailabilityCache.set(url, { ok: false, ts: Date.now() });
+			return false;
+		}
+	}
+
+	private async hasValidImage(product: Product): Promise<boolean> {
+		// Prefer explicit item image fields
+		const candidates = [product.itemImage2, product.itemImage1, product.itemImage3, product.itemImage4]
+			.filter((u): u is string => !!u && typeof u === 'string');
+
+		// Also consider conventional local fallback paths by SKU
+		const sku = product.id;
+		const localCandidates = [
+			`/images/products/${sku}.webp`,
+			`/images/products/${sku}.jpg`,
+			`/images/products/${sku}.png`,
+		];
+
+		// 1) Check explicit image URLs/paths
+		for (const url of candidates) {
+			const localPath = this.resolveLocalPathFromUrl(url);
+			if (localPath) {
+				if (fs.existsSync(localPath)) return true;
+			} else if (this.isHttpUrl(url)) {
+				if (await this.headWithTimeout(url)) return true;
+			}
+		}
+
+		// 2) Check common local fallbacks by SKU
+		for (const u of localCandidates) {
+			const p = this.resolveLocalPathFromUrl(u);
+			if (p && fs.existsSync(p)) return true;
+		}
+
+		return false;
+	}
 
 	/**
 	 * Quick product search for autocomplete (returns flat array)
@@ -106,17 +181,17 @@ export class ProductService {
 				.limit(limit * 5) // Get 5x to ensure we have enough after filtering
 				.getMany();
 			
-			// Check availability in NCR Counterpoint, image availability, and filter
+						// Check availability in NCR Counterpoint, image availability, and filter
 			const availableProducts: Product[] = [];
 			for (const product of candidates) {
 				if (availableProducts.length >= limit) break;
 				
-				// Check if product has at least one image
-				const hasImage = !!(product.itemImage1 || product.itemImage2 || product.itemImage3 || product.itemImage4);
-				if (!hasImage) {
-					this.logger.debug(`Skipping product ${product.id} - no image available`);
-					continue;
-				}
+							// Check if product has at least one VALID image (exists or resolves)
+							const hasValidImage = await this.hasValidImage(product);
+							if (!hasValidImage) {
+								this.logger.debug(`Skipping product ${product.id} - no valid image available`);
+								continue;
+							}
 				
 				const cpData = await this.cp.getItemBySku(product.id);
 				// Only include if item exists in Counterpoint and is active (STAT = 'A')
@@ -156,17 +231,17 @@ export class ProductService {
 				.limit(limit * 5) // Get 5x to ensure we have enough after filtering
 				.getMany();
 			
-			// Check availability in NCR Counterpoint, image availability, and filter
+						// Check availability in NCR Counterpoint, image availability, and filter
 			const availableProducts: Product[] = [];
 			for (const product of candidates) {
 				if (availableProducts.length >= limit) break;
 				
-				// Check if product has at least one image
-				const hasImage = !!(product.itemImage1 || product.itemImage2 || product.itemImage3 || product.itemImage4);
-				if (!hasImage) {
-					this.logger.debug(`Skipping product ${product.id} - no image available`);
-					continue;
-				}
+							// Check if product has at least one VALID image (exists or resolves)
+							const hasValidImage = await this.hasValidImage(product);
+							if (!hasValidImage) {
+								this.logger.debug(`Skipping product ${product.id} - no valid image available`);
+								continue;
+							}
 				
 				const cpData = await this.cp.getItemBySku(product.id);
 				// Only include if item exists in Counterpoint and is active (STAT = 'A')
@@ -200,17 +275,17 @@ export class ProductService {
 				.limit(limit * 5) // Get 5x to ensure we have enough after filtering
 				.getMany();
 			
-			// Check availability in NCR Counterpoint, image availability, and filter
+						// Check availability in NCR Counterpoint, image availability, and filter
 			const availableProducts: Product[] = [];
 			for (const product of candidates) {
 				if (availableProducts.length >= limit) break;
 				
-				// Check if product has at least one image
-				const hasImage = !!(product.itemImage1 || product.itemImage2 || product.itemImage3 || product.itemImage4);
-				if (!hasImage) {
-					this.logger.debug(`Skipping product ${product.id} - no image available`);
-					continue;
-				}
+							// Check if product has at least one VALID image (exists or resolves)
+							const hasValidImage = await this.hasValidImage(product);
+							if (!hasValidImage) {
+								this.logger.debug(`Skipping product ${product.id} - no valid image available`);
+								continue;
+							}
 				
 				const cpData = await this.cp.getItemBySku(product.id);
 				// Only include if item exists in Counterpoint and is active (STAT = 'A')
