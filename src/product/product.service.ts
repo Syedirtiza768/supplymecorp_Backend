@@ -175,23 +175,27 @@ export class ProductService {
 		try {
 			this.logger.log(`Fetching ${limit} new products with availability and image check`);
 			// Fetch more products than needed to account for unavailable items
+			// Order by SKU descending to get "newest" products (higher SKU = newer)
 			const candidates = await this.productRepository
 				.createQueryBuilder('product')
-				.orderBy('product.createdAt', 'DESC')
-				.limit(limit * 5) // Get 5x to ensure we have enough after filtering
+				.where('product.sku IS NOT NULL')
+				.orderBy('CAST(product.sku AS INTEGER)', 'DESC')
+				.limit(limit * 3) // Get 3x to ensure we have enough after filtering
 				.getMany();
 			
-						// Check availability in NCR Counterpoint, image availability, and filter
+			this.logger.log(`Fetched ${candidates.length} candidate products for new products`);
+			
+			// Check availability in NCR Counterpoint, image availability, and filter
 			const availableProducts: Product[] = [];
 			for (const product of candidates) {
 				if (availableProducts.length >= limit) break;
 				
-							// Check if product has at least one VALID image (exists or resolves)
-							const hasValidImage = await this.hasValidImage(product);
-							if (!hasValidImage) {
-								this.logger.debug(`Skipping product ${product.id} - no valid image available`);
-								continue;
-							}
+				// Check if product has at least one VALID image (exists or resolves)
+				const hasValidImage = await this.hasValidImage(product);
+				if (!hasValidImage) {
+					this.logger.debug(`Skipping product ${product.id} - no valid image available`);
+					continue;
+				}
 				
 				const cpData = await this.cp.getItemBySku(product.id);
 				// Only include if item exists in Counterpoint and is active (STAT = 'A')
@@ -203,6 +207,8 @@ export class ProductService {
 						regularPrice: cpData.REG_PRC ? parseFloat(cpData.REG_PRC) : null,
 					};
 					availableProducts.push(enrichedProduct as Product);
+				} else {
+					this.logger.debug(`Skipping product ${product.id} - not active in Counterpoint or not found`);
 				}
 			}
 			
@@ -210,7 +216,8 @@ export class ProductService {
 			return availableProducts;
 		} catch (error) {
 			this.logger.error('Error fetching new products', error);
-			throw error;
+			// Return empty array on error instead of throwing
+			return [];
 		}
 	}
 
