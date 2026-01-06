@@ -125,15 +125,17 @@ export class FlipbooksController {
   @Get(':flipbookId/pages/:pageNumber/hotspots')
   @UseInterceptors(CacheInterceptor)
   @CacheTTL(300000) // 5 minutes
-  getPageWithHotspots(
+  async getPageWithHotspots(
     @Param('flipbookId') flipbookId: string,
     @Param('pageNumber', ParseIntPipe) pageNumber: number,
-    @Res() res: any,
+    @Res() res: Response,
   ) {
     // Set aggressive cache headers for immutable flipbook hotspots
     res.set('Cache-Control', 'public, max-age=3600, immutable');
     res.set('ETag', `hotspots-${flipbookId}-${pageNumber}`);
-    return this.flipbooksService.getPageWithHotspots(flipbookId, pageNumber);
+    // Must explicitly send response when using @Res() decorator
+    const data = await this.flipbooksService.getPageWithHotspots(flipbookId, pageNumber);
+    return res.json(data);
   }
 
   @Put(':flipbookId/pages/:pageNumber/hotspots')
