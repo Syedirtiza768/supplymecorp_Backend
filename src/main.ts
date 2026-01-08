@@ -7,7 +7,19 @@ import * as compression from 'compression';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { 
-    cors: true,
+    cors: {
+      origin: [
+        'http://localhost:3001',
+        'http://localhost:3000',
+        'https://rrgeneralsupply.com',
+        'https://www.rrgeneralsupply.com',
+        'https://devapi.rrgeneralsupply.com'
+      ],
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+      exposedHeaders: ['Content-Length', 'Content-Type'],
+    },
     // Optimize body parser limits
     bodyParser: true,
   });
@@ -35,6 +47,10 @@ async function bootstrap() {
       res.setHeader('Cache-Control', 'public, max-age=3600');
       // Enable compression hints
       res.setHeader('Vary', 'Accept-Encoding');
+      // Add CORS headers for static files
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     },
   });
 
@@ -46,6 +62,10 @@ async function bootstrap() {
     setHeaders: (res, path) => {
       res.setHeader('Cache-Control', 'public, max-age=3600'); // 1 hour
       res.setHeader('Vary', 'Accept-Encoding');
+      // Add CORS headers for static files
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     },
   });
   
