@@ -19,23 +19,44 @@ async function bootstrap() {
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
       exposedHeaders: ['Content-Length', 'Content-Type'],
+      preflightContinue: false,
+      optionsSuccessStatus: 204,
     },
     // Optimize body parser limits
     bodyParser: true,
   });
-  
-  // Enable compression for text-based responses only (not images)
-  app.use(compression({
-    threshold: 1024, // Only compress responses larger than 1KB
-    level: 6, // Compression level (0-9, where 6 is a good balance)
-    filter: (req, res) => {
-      // Don't compress images
-      if (req.url.startsWith('/uploads/')) return false;
-      return compression.filter(req, res);
-    },
-  }));
-  
-  // Serve static files from uploads directory with 1 hour caching
+
+  // Add middleware to handle Private Network Access (Chrome security feature)
+  app.use((req, res, next) => {
+    // Set CORS headers for all requests
+    const origin = req.headers.origin;
+    const allowedOrigins = [
+      'http://localhost:3001',
+      'http://localhost:3000',
+      'https://rrgeneralsupply.com',
+      'https://www.rrgeneralsupply.com',
+      'https://devapi.rrgeneralsupply.com'
+    ];
+    
+    if (origin && allowedOrigins.includes(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+    }
+    
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept');
+    
+    // Handle Private Network Access preflight
+    if (req.headers['access-control-request-private-network']) {
+      res.setHeader('Access-Control-Allow-Private-Network', 'true');
+    }
+    
+    // Handle preflight requests
+    if (req.method === 'OPTIONS') {
+      return res.status(204).end();
+    }
+    
+    next();
   // Use process.cwd() to ensure correct path in production
   const uploadsPath = join(process.cwd(), 'uploads');
   app.useStaticAssets(uploadsPath, {
