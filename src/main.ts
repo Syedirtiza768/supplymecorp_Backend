@@ -57,6 +57,20 @@ async function bootstrap() {
     }
     
     next();
+  });
+
+  // Enable compression for text-based responses only (not images)
+  app.use(compression({
+    threshold: 1024, // Only compress responses larger than 1KB
+    level: 6, // Compression level (0-9, where 6 is a good balance)
+    filter: (req, res) => {
+      // Don't compress images
+      if (req.url.startsWith('/uploads/')) return false;
+      return compression.filter(req, res);
+    },
+  }));
+
+  // Serve static files from uploads directory with 1 hour caching
   // Use process.cwd() to ensure correct path in production
   const uploadsPath = join(process.cwd(), 'uploads');
   app.useStaticAssets(uploadsPath, {
