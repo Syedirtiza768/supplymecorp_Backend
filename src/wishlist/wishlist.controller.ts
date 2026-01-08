@@ -13,9 +13,14 @@ export class WishlistController {
 
   @Get()
   async index(@Req() req: any) {
-    const sid = this.sessionId(req);
-    const items = await this.wishlist.findBySession(sid);
-    return { items };
+    try {
+      const sid = this.sessionId(req);
+      const items = await this.wishlist.findBySession(sid);
+      return { items };
+    } catch (error) {
+      console.error('Wishlist index error:', error);
+      return { items: [] };
+    }
   }
 
   @Get('count')

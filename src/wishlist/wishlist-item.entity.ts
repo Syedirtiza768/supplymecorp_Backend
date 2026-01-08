@@ -15,7 +15,7 @@ export class WishlistItem {
   id: string;
 
   @Index()
-  @Column({ name: 'session_id', type: 'uuid' })
+  @Column({ name: 'session_id', type: 'varchar', length: 255 })
   sessionId: string;
 
   @Index()

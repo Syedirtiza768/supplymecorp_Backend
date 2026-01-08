@@ -16,6 +16,7 @@ import {
   DefaultValuePipe,
   ParseIntPipe,
   ParseEnumPipe,
+  Res,
 } from '@nestjs/common';
 import { ProductService } from './product.service';
 import { Product } from './product.entity';
@@ -87,9 +88,14 @@ export class ProductController {
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
     @Query('sortBy', new DefaultValuePipe('id')) sortBy: string,
     @Query('sortOrder', new DefaultValuePipe(SortOrder.DESC), new ParseEnumPipe(SortOrder)) sortOrder: SortOrder,
+    @Res() res: any,
   ): Promise<PaginatedResponseDto<Product>> {
     const paginationDto: PaginationDto = { page, limit, sortBy, sortOrder };
-    return this.productService.getProductsByCategory(category, paginationDto);
+    const result = this.productService.getProductsByCategory(category, paginationDto);
+    // Cache for 30 minutes (1800 seconds) - category data changes less frequently
+    res.setHeader('Cache-Control', 'public, max-age=1800');
+    res.setHeader('ETag', `"category-${category}-${page}-${limit}"`);
+    return result;
   }
 
   @Get('filters/by-brand/:brand')
@@ -141,9 +147,13 @@ export class ProductController {
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string): Promise<Product | null> {
+  async findOne(@Param('id') id: string, @Res() res: any): Promise<void> {
     await this.productService.incrementView(id);
-    return this.productService.findOne(id);
+    const product = await this.productService.findOne(id);
+    // Cache for 1 hour (3600 seconds) - product data doesn't change frequently
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.setHeader('ETag', `"product-${id}"`);
+    res.json(product);
   }
 
   @Patch(':id')
@@ -175,9 +185,12 @@ export class ProductController {
   /** --------------------- UNIFIED PRODUCT MERGE --------------------- */
   // Additive route: only one handler for this exact path should exist in the app.
   @Get(':sku/merged')
-  async getMerged(@Param('sku') sku: string) {
+  async getMerged(@Param('sku') sku: string, @Res() res: any) {
     const product = await this.productService.getUnifiedProduct(sku);
     if (!product) throw new NotFoundException('Product not found');
-    return product;
+    // Cache for 1 hour (3600 seconds) - price/merged data doesn't change frequently
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.setHeader('ETag', `"merged-${sku}"`);
+    res.json(product);
   }
 }

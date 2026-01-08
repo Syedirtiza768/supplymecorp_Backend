@@ -13,32 +13,39 @@ export class CartService {
 
   async findBySession(sessionId: string) {
     if (!sessionId) return [];
-    const items = await this.repo.find({ where: { sessionId }, order: { id: 'ASC' } });
-    // Attach Orgill image URLs if available
-    return await Promise.all(items.map(async (item) => {
-      let orgillImages: string[] = [];
-      let title: string | null = null;
-      let onlineTitleDescription: string | null = null;
-      let brandName: string | null = null;
-      try {
-        const unified = await this.products.getUnifiedProduct(String(item.productId));
-        if (unified) {
-          orgillImages = unified.images || [];
-          title = unified.title || null;
-          onlineTitleDescription = unified.title || null;
-          brandName = unified.brand || null;
+    try {
+      const items = await this.repo.find({ where: { sessionId }, order: { id: 'ASC' } });
+      // Attach Orgill image URLs if available
+      return await Promise.all(items.map(async (item) => {
+        let orgillImages: string[] = [];
+        let title: string | null = null;
+        let onlineTitleDescription: string | null = null;
+        let brandName: string | null = null;
+        try {
+          const unified = await this.products.getUnifiedProduct(String(item.productId));
+          if (unified) {
+            orgillImages = unified.images || [];
+            title = unified.title || null;
+            onlineTitleDescription = unified.title || null;
+            brandName = unified.brand || null;
+          }
+        } catch (e) {
+          console.error(`Failed to fetch product ${item.productId}:`, e.message);
         }
-      } catch (e) {}
-      // Always include price_snapshot (snake_case) for frontend compatibility
-      return {
-        ...item,
-        price_snapshot: item.priceSnapshot, // snake_case alias for frontend
-        orgillImages,
-        title,
-        onlineTitleDescription,
-        brandName,
-      };
-    }));
+        // Always include price_snapshot (snake_case) for frontend compatibility
+        return {
+          ...item,
+          price_snapshot: item.priceSnapshot, // snake_case alias for frontend
+          orgillImages,
+          title,
+          onlineTitleDescription,
+          brandName,
+        };
+      }));
+    } catch (error) {
+      console.error('Failed to fetch cart items:', error);
+      return [];
+    }
   }
 
   async upsertItem(opts: { sessionId: string; productId: number | string; qty: number }) {

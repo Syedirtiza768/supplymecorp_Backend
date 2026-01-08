@@ -13,42 +13,47 @@ export class WishlistService {
 
   async findBySession(sessionId: string) {
     if (!sessionId) return [];
-    const items = await this.repo.find({ 
-      where: { sessionId }, 
-      order: { createdAt: 'DESC' } 
-    });
-    
-    // Attach product details from Orgill/CounterPoint
-    return await Promise.all(items.map(async (item) => {
-      let orgillImages: string[] = [];
-      let title: string | null = null;
-      let onlineTitleDescription: string | null = null;
-      let brandName: string | null = null;
-      let currentPrice: string | null = null;
+    try {
+      const items = await this.repo.find({ 
+        where: { sessionId }, 
+        order: { createdAt: 'DESC' } 
+      });
       
-      try {
-        const unified = await this.products.getUnifiedProduct(String(item.productId));
-        if (unified) {
-          orgillImages = unified.images || [];
-          title = unified.title || null;
-          onlineTitleDescription = unified.title || null;
-          brandName = unified.brand || null;
-          currentPrice = String(unified.price || 0);
+      // Attach product details from Orgill/CounterPoint
+      return await Promise.all(items.map(async (item) => {
+        let orgillImages: string[] = [];
+        let title: string | null = null;
+        let onlineTitleDescription: string | null = null;
+        let brandName: string | null = null;
+        let currentPrice: string | null = null;
+        
+        try {
+          const unified = await this.products.getUnifiedProduct(String(item.productId));
+          if (unified) {
+            orgillImages = unified.images || [];
+            title = unified.title || null;
+            onlineTitleDescription = unified.title || null;
+            brandName = unified.brand || null;
+            currentPrice = String(unified.price || 0);
+          }
+        } catch (e) {
+          console.error(`Error fetching product ${item.productId}:`, e.message);
         }
-      } catch (e) {
-        console.error(`Error fetching product ${item.productId}:`, e);
-      }
-      
-      return {
-        ...item,
-        price_snapshot: item.priceSnapshot,
-        orgillImages,
-        title,
-        onlineTitleDescription,
-        brandName,
-        currentPrice,
-      };
-    }));
+        
+        return {
+          ...item,
+          price_snapshot: item.priceSnapshot,
+          orgillImages,
+          title,
+          onlineTitleDescription,
+          brandName,
+          currentPrice,
+        };
+      }));
+    } catch (error) {
+      console.error('Failed to fetch wishlist items:', error);
+      return [];
+    }
   }
 
   async addItem(opts: { sessionId: string; productId: number | string }) {
