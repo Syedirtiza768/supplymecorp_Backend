@@ -82,20 +82,20 @@ export class ProductController {
   }
 
   @Get('filters/by-category/:category')
-  getProductsByCategory(
+  async getProductsByCategory(
     @Param('category') category: string,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
     @Query('sortBy', new DefaultValuePipe('id')) sortBy: string,
     @Query('sortOrder', new DefaultValuePipe(SortOrder.DESC), new ParseEnumPipe(SortOrder)) sortOrder: SortOrder,
     @Res() res: any,
-  ): Promise<PaginatedResponseDto<Product>> {
+  ): Promise<void> {
     const paginationDto: PaginationDto = { page, limit, sortBy, sortOrder };
-    const result = this.productService.getProductsByCategory(category, paginationDto);
+    const result = await this.productService.getProductsByCategory(category, paginationDto);
     // Cache for 30 minutes (1800 seconds) - category data changes less frequently
     res.setHeader('Cache-Control', 'public, max-age=1800');
     res.setHeader('ETag', `"category-${category}-${page}-${limit}"`);
-    return result;
+    res.json(result);
   }
 
   @Get('filters/by-brand/:brand')
