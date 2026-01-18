@@ -2,7 +2,7 @@ import { Controller, Get, Logger } from '@nestjs/common';
 import { CustomersService } from './customers.service';
 import { CustomerDto } from './dto/customer.dto';
 
-@Controller('api/customers')
+@Controller('customers')
 export class CustomersController {
   private readonly logger = new Logger(CustomersController.name);
 
