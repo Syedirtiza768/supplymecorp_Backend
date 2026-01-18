@@ -46,10 +46,9 @@ async function bootstrap() {
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, x-session-id, Cache-Control');
     
-    // Handle Private Network Access preflight
-    if (req.headers['access-control-request-private-network']) {
-      res.setHeader('Access-Control-Allow-Private-Network', 'true');
-    }
+    // ALWAYS allow Private Network Access (required for public->private network requests)
+    // This is needed when rrgeneralsupply.com (public) accesses devapi.rrgeneralsupply.com (private IP)
+    res.setHeader('Access-Control-Allow-Private-Network', 'true');
     
     // Handle preflight requests
     if (req.method === 'OPTIONS') {
