@@ -17,7 +17,7 @@ async function bootstrap() {
       ],
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'x-session-id'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'x-session-id', 'Cache-Control'],
       exposedHeaders: ['Content-Length', 'Content-Type'],
       preflightContinue: false,
       optionsSuccessStatus: 204,
@@ -44,7 +44,7 @@ async function bootstrap() {
     
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, x-session-id');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, x-session-id, Cache-Control');
     
     // Handle Private Network Access preflight
     if (req.headers['access-control-request-private-network']) {
