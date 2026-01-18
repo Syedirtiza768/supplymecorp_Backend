@@ -36,4 +36,58 @@ export class OrgillRepository {
 		);
 		return rows?.[0] ?? null;
 	}
+
+	async getCountByCategory(categoryTitle: string): Promise<number> {
+		/**
+		 * Map frontend category titles to category codes from Counterpoint/Orgill
+		 * The mapping is based on the category-title-description field
+		 */
+		const categoryMap: { [key: string]: string } = {
+			'Building': '%Building%',
+			'Materials': '%Materials%',
+			'Tools': '%Tools%',
+			'Hardware': '%Hardware%',
+			'Plumbing': '%Plumbing%',
+			'Electrical': '%Electrical%',
+			'Flooring': '%Flooring%',
+			'Roofing': '%Roofing%',
+			'Gutters': '%Gutters%',
+			'Paint': '%Paint%',
+			'Decor': '%Decor%',
+			'Safety': '%Safety%',
+			'Workwear': '%Workwear%',
+			'Landscaping': '%Landscaping%',
+			'Outdoor': '%Outdoor%',
+			'HVAC': '%HVAC%',
+		};
+
+		const pattern = categoryMap[categoryTitle];
+		if (!pattern) {
+			return 0;
+		}
+
+		const result = await this.ds.query(
+			`
+			SELECT COUNT(*) as count
+			FROM public.orgill_products
+			WHERE "category-title-description" ILIKE $1
+			`,
+			[pattern],
+		);
+
+		return parseInt(result?.[0]?.count ?? '0', 10);
+	}
+
+	async getCategoryCountsForSpecific(categories: string[]): Promise<Record<string, number>> {
+		/**
+		 * Fetch counts for multiple specific categories from Counterpoint
+		 */
+		const result: Record<string, number> = {};
+
+		for (const category of categories) {
+			result[category] = await this.getCountByCategory(category);
+		}
+
+		return result;
+	}
 }

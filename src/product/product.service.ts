@@ -706,6 +706,24 @@ export class ProductService {
 		return results.filter(Boolean);
 	}
 
+	/**
+	 * Get product counts for specific categories from Counterpoint data
+	 * Used for the "Products by Category" section on the homepage
+	 */
+	async getSpecificCategoryCounts(categories: string[]): Promise<Record<string, number>> {
+		try {
+			return await this.orgillRepo.getCategoryCountsForSpecific(categories);
+		} catch (error) {
+			console.error('Error fetching category counts:', error);
+			// Return zero counts for all categories on error
+			const result: Record<string, number> = {};
+			categories.forEach(cat => {
+				result[cat] = 0;
+			});
+			return result;
+		}
+	}
+
 	// Helper for paginated response
 	private paginate<T>(items: T[], total: number, pagination: PaginationDto): PaginatedResponseDto<T> {
 		const { page = 1, limit = 10 } = pagination;

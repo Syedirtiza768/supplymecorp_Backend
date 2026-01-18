@@ -15,6 +15,8 @@ import { FlipbookPage } from './flipbook/entities/flipbook-page.entity';
 import { FlipbookHotspot } from './flipbook/entities/flipbook-hotspot.entity';
 import { HotspotsModule } from './hotspots/hotspots.module';
 import { Hotspot } from './hotspots/hotspot.entity';
+import { CategoryCount } from './product/entities/category-count.entity';
+import { CustomersModule } from './customers/customers.module';
 
 @Module({
   imports: [
@@ -30,7 +32,7 @@ import { Hotspot } from './hotspots/hotspot.entity';
         database: cfg.get<string>('DB_NAME'),
         synchronize: false,
         autoLoadEntities: false,
-        entities: [Product, CartItem, WishlistItem, ReviewItem, Flipbook, FlipbookPage, FlipbookHotspot, Hotspot],
+        entities: [Product, CartItem, WishlistItem, ReviewItem, Flipbook, FlipbookPage, FlipbookHotspot, Hotspot, CategoryCount],
         // Connection pool optimization
         extra: {
           max: 20, // Maximum number of connections in pool
@@ -52,6 +54,7 @@ import { Hotspot } from './hotspots/hotspot.entity';
   ReviewModule,
   FlipbookModule,
   HotspotsModule,
+  CustomersModule,
   ],
 })
 export class AppModule {}
