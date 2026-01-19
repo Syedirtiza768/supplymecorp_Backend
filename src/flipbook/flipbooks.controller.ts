@@ -138,6 +138,20 @@ export class FlipbooksController {
     return res.json(data);
   }
 
+  @Get(':flipbookId/hotspots/all')
+  @UseInterceptors(CacheInterceptor)
+  @CacheTTL(300000) // 5 minutes
+  async getAllHotspots(
+    @Param('flipbookId') flipbookId: string,
+    @Res() res: Response,
+  ) {
+    // Set aggressive cache headers for instant loading
+    res.set('Cache-Control', 'public, max-age=3600, immutable');
+    res.set('ETag', `all-hotspots-${flipbookId}`);
+    const data = await this.flipbooksService.getAllHotspotsForFlipbook(flipbookId);
+    return res.json(data);
+  }
+
   @Put(':flipbookId/pages/:pageNumber/hotspots')
   updatePageHotspots(
     @Param('flipbookId') flipbookId: string,

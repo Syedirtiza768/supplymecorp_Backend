@@ -308,6 +308,26 @@ export class FlipbooksService {
   }
 
   /**
+   * Get all hotspots for a flipbook (optimized for instant loading)
+   */
+  async getAllHotspotsForFlipbook(flipbookId: string): Promise<{
+    pageNumber: number;
+    hotspots: FlipbookHotspot[];
+  }[]> {
+    const pages = await this.pageRepository
+      .createQueryBuilder('page')
+      .leftJoinAndSelect('page.hotspots', 'hotspots')
+      .where('page.flipbookId = :flipbookId', { flipbookId })
+      .orderBy('page.pageNumber', 'ASC')
+      .getMany();
+
+    return pages.map(page => ({
+      pageNumber: page.pageNumber,
+      hotspots: page.hotspots || [],
+    }));
+  }
+
+  /**
    * Update hotspots for a page (atomic replacement)
    */
   async updatePageHotspots(
