@@ -52,7 +52,7 @@ export class FlipbooksController {
 
   @Get(':id')
   findFlipbookById(@Param('id') id: string) {
-    return this.flipbooksService.findFlipbookById(id);
+    return this.flipbooksService.findFlipbookById(id, true);
   }
 
   @Put(':id')
